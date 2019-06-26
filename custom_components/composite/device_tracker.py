@@ -27,7 +27,7 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = '1.8.0'
+__version__ = '1.9.0'
 
 CONF_TIME_AS = 'time_as'
 

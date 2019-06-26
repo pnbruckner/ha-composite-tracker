@@ -3,7 +3,7 @@
   "name": "Composite",
   "documentation": "https://github.com/pnbruckner/homeassistant-config/blob/master/docs/composite.md",
   "requirements": [
-    "timezonefinderL==2.0.1"
+    "timezonefinderL==4.0.2"
   ],
   "dependencies": [],
   "codeowners": [
