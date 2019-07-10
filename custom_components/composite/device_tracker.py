@@ -24,12 +24,14 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.event import track_state_change
 from homeassistant.util.async_ import run_callback_threadsafe
 import homeassistant.util.dt as dt_util
+from homeassistant.util.location import distance
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = '1.9.0'
+__version__ = '1.10.0'
 
 CONF_TIME_AS = 'time_as'
+CONF_REQ_MOVEMENT = 'require_movement'
 
 TZ_UTC = 'utc'
 TZ_LOCAL = 'local'
@@ -59,6 +61,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_ENTITY_ID): cv.entity_ids,
     vol.Optional(CONF_TIME_AS, default=TIME_AS_OPTS[0]):
         vol.In(TIME_AS_OPTS),
+    vol.Optional(CONF_REQ_MOVEMENT, default=False): cv.boolean,
 })
 
 
@@ -84,6 +87,7 @@ class CompositeScanner:
         if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
             from timezonefinderL import TimezoneFinder
             self._tf = TimezoneFinder()
+        self._req_movement = config[CONF_REQ_MOVEMENT]
         self._lock = threading.Lock()
         self._prev_seen = None
 
@@ -194,6 +198,22 @@ class CompositeScanner:
                     self._bad_entity(entity_id,
                                      'missing gps_accuracy attribute', init)
                     return
+                if self._req_movement and old_state is not None:
+                    try:
+                        old_lat = old_state.attributes[ATTR_LATITUDE]
+                        old_lon = old_state.attributes[ATTR_LONGITUDE]
+                        old_acc = old_state.attributes[ATTR_GPS_ACCURACY]
+                    except KeyError:
+                        self._bad_entity(entity_id,
+                                        'old_state missing gps data', init)
+                        return
+                    if (distance(gps[0], gps[1], old_lat, old_lon) <=
+                            gps_accuracy + old_acc):
+                        _LOGGER.debug(
+                            'For {} skipping update from {}: '
+                            'not enough movement'
+                            .format(self._entity_id, entity_id))
+                        return
                 self._good_entity(entity_id, SOURCE_TYPE_GPS, state)
 
             elif source_type in SOURCE_TYPE_NON_GPS:
