@@ -208,7 +208,8 @@ class CompositeScanner:
                                         'old_state missing gps data', init)
                         return
                     if (distance(gps[0], gps[1], old_lat, old_lon) <=
-                            gps_accuracy + old_acc):
+                            gps_accuracy + old_acc and
+                            old_state.state == new_state.state):
                         _LOGGER.debug(
                             'For {} skipping update from {}: '
                             'not enough movement'
