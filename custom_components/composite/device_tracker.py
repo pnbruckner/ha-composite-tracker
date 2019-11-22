@@ -204,16 +204,18 @@ class CompositeScanner:
                         old_lon = old_state.attributes[ATTR_LONGITUDE]
                         old_acc = old_state.attributes[ATTR_GPS_ACCURACY]
                     except KeyError:
-                        self._bad_entity(entity_id,
-                                        'old_state missing gps data', init)
-                        return
-                    if (distance(gps[0], gps[1], old_lat, old_lon) <=
-                            gps_accuracy + old_acc):
-                        _LOGGER.debug(
-                            'For {} skipping update from {}: '
-                            'not enough movement'
-                            .format(self._entity_id, entity_id))
-                        return
+                        # If GPS data is missing from old state, then it was
+                        # missing from new state the last time and would have
+                        # already been logged, so ignore.
+                        pass
+                    else:
+                        if (distance(gps[0], gps[1], old_lat, old_lon) <=
+                                gps_accuracy + old_acc):
+                            _LOGGER.debug(
+                                'For {} skipping update from {}: '
+                                'not enough movement'
+                                .format(self._entity_id, entity_id))
+                            return
                 self._good_entity(entity_id, SOURCE_TYPE_GPS, state)
 
             elif source_type in SOURCE_TYPE_NON_GPS:
