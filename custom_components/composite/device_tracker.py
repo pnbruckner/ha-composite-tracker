@@ -109,10 +109,10 @@ class CompositeScanner:
             if len(self._entities):
                 self._remove = track_state_change(
                     self._hass, self._entities.keys(), self._update_info)
-        else:
+        # Don't warn during init.
+        elif not init:
             _LOGGER.warning(msg)
-            # Don't count warnings during init.
-            self._entities[entity_id][WARNED] = not init
+            self._entities[entity_id][WARNED] = True
 
     def _good_entity(self, entity_id, source_type, state):
         self._entities[entity_id].update({
