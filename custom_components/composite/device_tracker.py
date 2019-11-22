@@ -47,7 +47,7 @@ ATTR_TIME_ZONE = 'time_zone'
 
 WARNED = 'warned'
 SOURCE_TYPE = ATTR_SOURCE_TYPE
-STATE = ATTR_STATE
+DATA = 'data'
 
 SOURCE_TYPE_BINARY_SENSOR = BS_DOMAIN
 STATE_BINARY_SENSOR_HOME = STATE_ON
@@ -80,7 +80,7 @@ class CompositeScanner:
             self._entities[entity_id] = {
                 WARNED: False,
                 SOURCE_TYPE: None,
-                STATE: None}
+                DATA: None}
         self._dev_id = config[CONF_NAME]
         self._entity_id = ENTITY_ID_FORMAT.format(self._dev_id)
         self._time_as = config[CONF_TIME_AS]
@@ -114,11 +114,11 @@ class CompositeScanner:
             _LOGGER.warning(msg)
             self._entities[entity_id][WARNED] = True
 
-    def _good_entity(self, entity_id, source_type, state):
+    def _good_entity(self, entity_id, source_type, data):
         self._entities[entity_id].update({
             WARNED: False,
             SOURCE_TYPE: source_type,
-            STATE: state})
+            DATA: data})
 
     def _use_non_gps_data(self, state):
         if state == STATE_HOME:
@@ -127,7 +127,7 @@ class CompositeScanner:
         if any(entity[SOURCE_TYPE] == SOURCE_TYPE_GPS
                 for entity in entities):
             return False
-        return all(entity[STATE] != STATE_HOME
+        return all(entity[DATA] != STATE_HOME
             for entity in entities
             if entity[SOURCE_TYPE] in SOURCE_TYPE_NON_GPS)
 
@@ -198,25 +198,21 @@ class CompositeScanner:
                     self._bad_entity(entity_id,
                                      'missing gps_accuracy attribute', init)
                     return
-                if self._req_movement and old_state is not None:
+                if self._req_movement:
                     try:
-                        old_lat = old_state.attributes[ATTR_LATITUDE]
-                        old_lon = old_state.attributes[ATTR_LONGITUDE]
-                        old_acc = old_state.attributes[ATTR_GPS_ACCURACY]
-                    except KeyError:
-                        # If GPS data is missing from old state, then it was
-                        # missing from new state the last time and would have
-                        # already been logged, so ignore.
+                        old_gps, old_acc = self._entities[entity_id][DATA]
+                    except TypeError:
                         pass
                     else:
-                        if (distance(gps[0], gps[1], old_lat, old_lon) <=
+                        if (distance(gps[0], gps[1], old_gps[0], old_gps[1]) <=
                                 gps_accuracy + old_acc):
                             _LOGGER.debug(
                                 'For {} skipping update from {}: '
                                 'not enough movement'
                                 .format(self._entity_id, entity_id))
                             return
-                self._good_entity(entity_id, SOURCE_TYPE_GPS, state)
+                self._good_entity(entity_id, SOURCE_TYPE_GPS,
+                                  (gps, gps_accuracy))
 
             elif source_type in SOURCE_TYPE_NON_GPS:
                 # Convert 'on'/'off' state of binary_sensor
