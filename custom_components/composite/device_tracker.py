@@ -28,7 +28,7 @@ from homeassistant.util.location import distance
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = '1.10.1b1'
+__version__ = '1.10.1b2'
 
 CONF_TIME_AS = 'time_as'
 CONF_REQ_MOVEMENT = 'require_movement'
@@ -46,6 +46,7 @@ ATTR_LAST_ENTITY_ID = 'last_entity_id'
 ATTR_TIME_ZONE = 'time_zone'
 
 WARNED = 'warned'
+SEEN = 'seen'
 SOURCE_TYPE = ATTR_SOURCE_TYPE
 DATA = 'data'
 
@@ -79,6 +80,7 @@ class CompositeScanner:
         for entity_id in entities:
             self._entities[entity_id] = {
                 WARNED: False,
+                SEEN: None,
                 SOURCE_TYPE: None,
                 DATA: None}
         self._dev_id = config[CONF_NAME]
@@ -90,15 +92,20 @@ class CompositeScanner:
         self._req_movement = config[CONF_REQ_MOVEMENT]
         self._lock = threading.Lock()
         self._prev_seen = None
+        self._init_complete = False
 
         self._remove = track_state_change(
             hass, entities, self._update_info)
 
         for entity_id in entities:
-            self._update_info(entity_id, None, hass.states.get(entity_id),
-                              init=True)
+            self._update_info(entity_id, None, hass.states.get(entity_id))
 
-    def _bad_entity(self, entity_id, message, init):
+        def init_complete(event):
+            self._init_complete = True
+
+        hass.bus.listen_once(EVENT_HOMEASSISTANT_START, init_complete)
+
+    def _bad_entity(self, entity_id, message):
         msg = '{} {}'.format(entity_id, message)
         # Has there already been a warning for this entity?
         if self._entities[entity_id][WARNED]:
@@ -110,13 +117,16 @@ class CompositeScanner:
                 self._remove = track_state_change(
                     self._hass, self._entities.keys(), self._update_info)
         # Don't warn during init.
-        elif not init:
+        elif self._init_complete:
             _LOGGER.warning(msg)
             self._entities[entity_id][WARNED] = True
+        else:
+            _LOGGER.debug(msg)
 
-    def _good_entity(self, entity_id, source_type, data):
+    def _good_entity(self, entity_id, seen, source_type, data):
         self._entities[entity_id].update({
             WARNED: False,
+            SEEN: seen,
             SOURCE_TYPE: source_type,
             DATA: data})
 
@@ -138,7 +148,7 @@ class CompositeScanner:
             return dt_util.as_local(utc)
         return utc
 
-    def _update_info(self, entity_id, old_state, new_state, init=False):
+    def _update_info(self, entity_id, old_state, new_state):
         if new_state is None:
             return
 
@@ -157,13 +167,9 @@ class CompositeScanner:
                 except (TypeError, ValueError):
                     last_seen = new_state.last_updated
 
-            # Is this newer info than last update?
-            if self._prev_seen and last_seen <= self._prev_seen:
-                _LOGGER.debug(
-                    'For {} skipping update from {}: '
-                    'last_seen not newer than previous update ({} <= {})'
-                    .format(self._entity_id, entity_id, last_seen,
-                        self._prev_seen))
+            old_last_seen = self._entities[entity_id][SEEN]
+            if old_last_seen and last_seen < old_last_seen:
+                self._bad_entity(entity_id, 'last_seen went backwards')
                 return
 
             # Try to get GPS and battery data.
@@ -191,28 +197,29 @@ class CompositeScanner:
             if source_type == SOURCE_TYPE_GPS:
                 # GPS coordinates and accuracy are required.
                 if gps is None:
-                    self._bad_entity(entity_id,
-                                     'missing gps attributes', init)
+                    self._bad_entity(entity_id, 'missing gps attributes')
                     return
                 if gps_accuracy is None:
                     self._bad_entity(entity_id,
-                                     'missing gps_accuracy attribute', init)
+                                     'missing gps_accuracy attribute')
                     return
-                if self._req_movement:
-                    try:
-                        old_gps, old_acc = self._entities[entity_id][DATA]
-                    except TypeError:
-                        pass
-                    else:
-                        if (distance(gps[0], gps[1], old_gps[0], old_gps[1]) <=
-                                gps_accuracy + old_acc):
-                            _LOGGER.debug(
-                                'For {} skipping update from {}: '
-                                'not enough movement'
-                                .format(self._entity_id, entity_id))
-                            return
-                self._good_entity(entity_id, SOURCE_TYPE_GPS,
-                                  (gps, gps_accuracy))
+
+                new_data = gps, gps_accuracy
+                old_data = self._entities[entity_id][DATA]
+                if old_data:
+                    if last_seen == old_last_seen and new_data == old_data:
+                        return
+                    old_gps, old_acc = old_data
+                self._good_entity(entity_id, last_seen, source_type, new_data)
+
+                if (self._req_movement and old_data and
+                        distance(gps[0], gps[1], old_gps[0], old_gps[1]) <=
+                            gps_accuracy + old_acc):
+                    _LOGGER.debug(
+                        'For {} skipping update from {}: '
+                        'not enough movement'
+                        .format(self._entity_id, entity_id))
+                    return
 
             elif source_type in SOURCE_TYPE_NON_GPS:
                 # Convert 'on'/'off' state of binary_sensor
@@ -223,8 +230,8 @@ class CompositeScanner:
                     else:
                         state = STATE_NOT_HOME
 
-                self._good_entity(
-                    entity_id, source_type, state)
+                self._good_entity(entity_id, last_seen, source_type, state)
+
                 if not self._use_non_gps_data(state):
                     return
 
@@ -272,8 +279,16 @@ class CompositeScanner:
             else:
                 self._bad_entity(
                     entity_id,
-                    'unsupported source_type: {}'.format(source_type),
-                    init)
+                    'unsupported source_type: {}'.format(source_type))
+                return
+
+            # Is this newer info than last update?
+            if self._prev_seen and last_seen <= self._prev_seen:
+                _LOGGER.debug(
+                    'For {} skipping update from {}: '
+                    'last_seen not newer than previous update ({} <= {})'
+                    .format(self._entity_id, entity_id, last_seen,
+                        self._prev_seen))
                 return
 
             _LOGGER.debug('Updating %s from %s', self._entity_id, entity_id)
