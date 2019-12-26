@@ -1,7 +1,7 @@
 """
 A Device Tracker platform that combines one or more device trackers.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import threading
 
@@ -28,7 +28,7 @@ from homeassistant.util.location import distance
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = '1.10.1'
+__version__ = '1.11.0'
 
 CONF_TIME_AS = 'time_as'
 CONF_REQ_MOVEMENT = 'require_movement'
@@ -69,6 +69,12 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 def setup_scanner(hass, config, see, discovery_info=None):
     CompositeScanner(hass, config, see)
     return True
+
+
+def nearest_second(time):
+    """Round time to nearest second."""
+    return (time.replace(microsecond=0) +
+            timedelta(seconds=0 if time.microsecond < 500000 else 1))
 
 
 class CompositeScanner:
@@ -271,6 +277,15 @@ class CompositeScanner:
                 # use it and make source_type gps.
                 elif gps:
                     source_type = SOURCE_TYPE_GPS
+                # Otherwise, if new state is 'home' and old state is not 'home'
+                # and no GPS data, then use HA's configured Home location and
+                # make source_type gps.
+                elif state == STATE_HOME and cur_state.state != STATE_HOME:
+                    gps = (
+                        self._hass.config.latitude,
+                        self._hass.config.longitude)
+                    gps_accuracy = 0
+                    source_type = SOURCE_TYPE_GPS
                 # Otherwise, don't use any GPS data, but set location_name to
                 # new state.
                 else:
@@ -311,8 +326,7 @@ class CompositeScanner:
                     if entity[ATTR_SOURCE_TYPE] is not None),
                 ATTR_LAST_ENTITY_ID: entity_id,
                 ATTR_LAST_SEEN:
-                    self._dt_attr_from_utc(last_seen.replace(microsecond=0),
-                                           tz)
+                    self._dt_attr_from_utc(nearest_second(last_seen), tz)
             })
             if charging is not None:
                 attrs[ATTR_BATTERY_CHARGING] = charging
