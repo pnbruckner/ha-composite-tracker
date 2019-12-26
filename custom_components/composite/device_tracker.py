@@ -28,7 +28,7 @@ from homeassistant.util.location import distance
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = '1.11.0b1'
+__version__ = '1.11.0'
 
 CONF_TIME_AS = 'time_as'
 CONF_REQ_MOVEMENT = 'require_movement'
