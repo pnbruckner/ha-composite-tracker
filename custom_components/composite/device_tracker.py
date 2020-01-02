@@ -1,6 +1,4 @@
-"""
-A Device Tracker platform that combines one or more device trackers.
-"""
+"""A Device Tracker platform that combines one or more device trackers."""
 from datetime import datetime, timedelta
 import logging
 import threading
@@ -16,10 +14,10 @@ from homeassistant.components.device_tracker.const import ENTITY_ID_FORMAT
 from homeassistant.components.zone import ENTITY_ID_HOME
 from homeassistant.components.zone import async_active_zone
 from homeassistant.const import (
-    ATTR_BATTERY_CHARGING, ATTR_BATTERY_LEVEL,
-    ATTR_ENTITY_ID, ATTR_GPS_ACCURACY, ATTR_LATITUDE, ATTR_LONGITUDE,
-    ATTR_STATE, CONF_ENTITY_ID, CONF_NAME, EVENT_HOMEASSISTANT_START,
-    STATE_HOME, STATE_NOT_HOME, STATE_ON, STATE_UNKNOWN)
+    ATTR_BATTERY_CHARGING, ATTR_BATTERY_LEVEL, ATTR_ENTITY_ID,
+    ATTR_GPS_ACCURACY, ATTR_LATITUDE, ATTR_LONGITUDE, CONF_ENTITY_ID,
+    CONF_NAME, EVENT_HOMEASSISTANT_START, STATE_HOME, STATE_NOT_HOME, STATE_ON,
+    STATE_UNKNOWN)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.event import track_state_change
 from homeassistant.util.async_ import run_callback_threadsafe
@@ -67,6 +65,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 
 def setup_scanner(hass, config, see, discovery_info=None):
+    """Set up a device scanner."""
     CompositeScanner(hass, config, see)
     return True
 
@@ -78,7 +77,10 @@ def nearest_second(time):
 
 
 class CompositeScanner:
+    """Composite device scanner."""
+
     def __init__(self, hass, config, see):
+        """Initialize CompositeScanner."""
         self._hass = hass
         self._see = see
         entities = config[CONF_ENTITY_ID]
@@ -140,16 +142,15 @@ class CompositeScanner:
         if state == STATE_HOME:
             return True
         entities = self._entities.values()
-        if any(entity[SOURCE_TYPE] == SOURCE_TYPE_GPS
-                for entity in entities):
+        if any(entity[SOURCE_TYPE] == SOURCE_TYPE_GPS for entity in entities):
             return False
         return all(entity[DATA] != STATE_HOME
-            for entity in entities
-            if entity[SOURCE_TYPE] in SOURCE_TYPE_NON_GPS)
+                   for entity in entities
+                   if entity[SOURCE_TYPE] in SOURCE_TYPE_NON_GPS)
 
-    def _dt_attr_from_utc(self, utc, tz):
-        if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL] and tz:
-            return utc.astimezone(tz)
+    def _dt_attr_from_utc(self, utc, tzone):
+        if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL] and tzone:
+            return utc.astimezone(tzone)
         if self._time_as in [TZ_LOCAL, TZ_DEVICE_LOCAL]:
             return dt_util.as_local(utc)
         return utc
@@ -218,9 +219,12 @@ class CompositeScanner:
                     old_gps, old_acc = old_data
                 self._good_entity(entity_id, last_seen, source_type, new_data)
 
-                if (self._req_movement and old_data and
-                        distance(gps[0], gps[1], old_gps[0], old_gps[1]) <=
-                            gps_accuracy + old_acc):
+                if (
+                    self._req_movement and old_data
+                    and distance(
+                        gps[0], gps[1], old_gps[0], old_gps[1]
+                    ) <= gps_accuracy + old_acc
+                ):
                     _LOGGER.debug(
                         'For {} skipping update from {}: '
                         'not enough movement'
@@ -280,7 +284,10 @@ class CompositeScanner:
                 # Otherwise, if new state is 'home' and old state is not 'home'
                 # and no GPS data, then use HA's configured Home location and
                 # make source_type gps.
-                elif state == STATE_HOME and cur_state.state != STATE_HOME:
+                elif (
+                    state == STATE_HOME
+                    and (cur_state is None or cur_state.state != STATE_HOME)
+                ):
                     gps = (
                         self._hass.config.latitude,
                         self._hass.config.longitude)
@@ -303,19 +310,19 @@ class CompositeScanner:
                     'For {} skipping update from {}: '
                     'last_seen not newer than previous update ({} <= {})'
                     .format(self._entity_id, entity_id, last_seen,
-                        self._prev_seen))
+                            self._prev_seen))
                 return
 
             _LOGGER.debug('Updating %s from %s', self._entity_id, entity_id)
 
-            tz = None
+            tzone = None
             if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
                 tzname = None
                 if gps:
                     # timezone_at will return a string or None.
                     tzname = self._tf.timezone_at(lng=gps[1], lat=gps[0])
                     # get_time_zone will return a tzinfo or None.
-                    tz = dt_util.get_time_zone(tzname)
+                    tzone = dt_util.get_time_zone(tzname)
                 attrs = {ATTR_TIME_ZONE: tzname or STATE_UNKNOWN}
             else:
                 attrs = {}
@@ -326,12 +333,12 @@ class CompositeScanner:
                     if entity[ATTR_SOURCE_TYPE] is not None),
                 ATTR_LAST_ENTITY_ID: entity_id,
                 ATTR_LAST_SEEN:
-                    self._dt_attr_from_utc(nearest_second(last_seen), tz)
+                    self._dt_attr_from_utc(nearest_second(last_seen), tzone)
             })
             if charging is not None:
                 attrs[ATTR_BATTERY_CHARGING] = charging
             self._see(dev_id=self._dev_id, location_name=location_name,
-                gps=gps, gps_accuracy=gps_accuracy, battery=battery,
-                attributes=attrs, source_type=source_type)
+                      gps=gps, gps_accuracy=gps_accuracy, battery=battery,
+                      attributes=attrs, source_type=source_type)
 
             self._prev_seen = last_seen
