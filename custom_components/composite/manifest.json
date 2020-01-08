@@ -2,11 +2,7 @@
   "domain": "composite",
   "name": "Composite",
   "documentation": "https://github.com/pnbruckner/homeassistant-config/blob/master/docs/composite.md",
-  "requirements": [
-    "timezonefinderL==4.0.2"
-  ],
+  "requirements": [],
   "dependencies": [],
-  "codeowners": [
-    "@pnbruckner"
-  ]
+  "codeowners": ["@pnbruckner"]
 }
