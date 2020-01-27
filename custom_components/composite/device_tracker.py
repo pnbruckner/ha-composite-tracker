@@ -35,7 +35,10 @@ ATTR_LAST_SEEN = 'last_seen'
 ATTR_LAST_ENTITY_ID = 'last_entity_id'
 ATTR_TIME_ZONE = 'time_zone'
 
+INACTIVE = 'inactive'
+ACTIVE = 'active'
 WARNED = 'warned'
+STATUS = 'status'
 SEEN = 'seen'
 SOURCE_TYPE = ATTR_SOURCE_TYPE
 DATA = 'data'
@@ -79,7 +82,7 @@ class CompositeScanner:
         self._entities = {}
         for entity_id in entities:
             self._entities[entity_id] = {
-                WARNED: False,
+                STATUS: INACTIVE,
                 SEEN: None,
                 SOURCE_TYPE: None,
                 DATA: None}
@@ -91,7 +94,6 @@ class CompositeScanner:
         self._req_movement = config[CONF_REQ_MOVEMENT]
         self._lock = threading.Lock()
         self._prev_seen = None
-        self._init_complete = False
 
         self._remove = track_state_change(
             hass, entities, self._update_info)
@@ -99,15 +101,10 @@ class CompositeScanner:
         for entity_id in entities:
             self._update_info(entity_id, None, hass.states.get(entity_id))
 
-        def init_complete(event):
-            self._init_complete = True
-
-        hass.bus.listen_once(EVENT_HOMEASSISTANT_START, init_complete)
-
     def _bad_entity(self, entity_id, message):
         msg = '{} {}'.format(entity_id, message)
         # Has there already been a warning for this entity?
-        if self._entities[entity_id][WARNED]:
+        if self._entities[entity_id][STATUS] == WARNED:
             _LOGGER.error(msg)
             self._remove()
             self._entities.pop(entity_id)
@@ -115,16 +112,17 @@ class CompositeScanner:
             if len(self._entities):
                 self._remove = track_state_change(
                     self._hass, self._entities.keys(), self._update_info)
-        # Don't warn during init.
-        elif self._init_complete:
+        # Only warn if this is not the first state change for the entity.
+        elif self._entities[entity_id][STATUS] == ACTIVE:
             _LOGGER.warning(msg)
-            self._entities[entity_id][WARNED] = True
+            self._entities[entity_id][STATUS] = WARNED
         else:
             _LOGGER.debug(msg)
+            self._entities[entity_id][STATUS] = ACTIVE
 
     def _good_entity(self, entity_id, seen, source_type, data):
         self._entities[entity_id].update({
-            WARNED: False,
+            STATUS: ACTIVE,
             SEEN: seen,
             SOURCE_TYPE: source_type,
             DATA: data})
