@@ -28,6 +28,7 @@ See [HACS](https://github.com/custom-components/hacs).
 Alternatively, place a copy of:
 
 [`__init__.py`](custom_components/composite/__init__.py) at `<config>/custom_components/composite/__init__.py`  
+[`const.py`](custom_components/composite/const.py) at `<config>/custom_components/composite/const.py`  
 [`device_tracker.py`](custom_components/composite/device_tracker.py) at `<config>/custom_components/composite/device_tracker.py`  
 [`manifest.json`](custom_components/composite/manifest.json) at `<config>/custom_components/composite/manifest.json`
 
@@ -37,13 +38,21 @@ where `<config>` is your Home Assistant configuration directory.
 
 ### numpy on Raspberry Pi
 
-To determine time zone from GPS coordinates (see `time_as` configuration variable below) the package [timezonefinderL](https://pypi.org/project/timezonefinderL/) is used. That package requires the package [numpy](https://pypi.org/project/numpy/). These will both be installed automatically by HA. Note, however, that numpy on Pi _usually_ requires libatlas to be installed. (See [this web page](https://www.raspberrypi.org/forums/viewtopic.php?t=207058) for more details.) It can be installed using this command:
+To determine time zone from GPS coordinates (see `time_as` configuration variable below) the package [timezonefinderL](https://pypi.org/project/timezonefinderL/) (by default) is used. That package requires the package [numpy](https://pypi.org/project/numpy/). These will both be installed automatically by HA. Note, however, that numpy on Pi _usually_ requires libatlas to be installed. (See [this web page](https://www.raspberrypi.org/forums/viewtopic.php?t=207058) for more details.) It can be installed using this command:
 ```
 sudo apt install libatlas3-base
 ```
 >Note: This is the same step that would be required if using a standard HA component that uses numpy (such as the [Trend Binary Sensor](https://www.home-assistant.io/components/binary_sensor.trend/)), and is only required if you use `device_or_utc` or `device_or_local` for `time_as`.
 
 ## Configuration variables
+### `composite` integration
+
+- **tz_finder** (*Optional*): Specifies which `timezonefinder` package, and possibly version, to install. Must be formatted as required by `pip`. Default is `timezonefinderL==4.0.2`. Other common values:  
+
+`timezonefinderL==2.0.1`  
+`timezonefinder`  
+`timezonefinder==4.2.0`
+### `device_tracker` platform
 
 - **entity_id**: Entity IDs of watched device tracker devices. Can be a single entity ID, a list of entity IDs, or a string containing multiple entity IDs separated by commas.
 - **name**: Object ID (i.e., part of entity ID after the dot) of composite device. For example, `NAME` would result in an entity ID of `device_tracker.NAME`.
@@ -84,6 +93,20 @@ source_type | Source of current location information: `binary_sensor`, `bluetoot
 time_zone | The name of the time zone in which the device is located, or `unknown` if it cannot be determined. Only exists if `device_or_utc` or `device_or_local` is chosen for `time_as`.
 
 ## Examples
+### Example Full Config
+```yaml
+composite:
+  tz_finder: timezonefinderL==2.0.1
+device_tracker:
+  - platform: composite
+    name: me
+    time_as: device_or_local
+    require_movement: true
+    entity_id:
+      - device_tracker.platform1_me
+      - device_tracker.platform2_me
+```
+
 ### Time zone examples
 
 This example assumes `time_as` is set to `device_or_utc` or `device_or_local`. It determines the difference between the time zone in which the device is located and the `time_zone` in HA's configuration. A positive value means the device's time zone is ahead of (or later than, or east of) the local time zone.

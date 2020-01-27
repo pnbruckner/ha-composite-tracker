@@ -24,19 +24,11 @@ from homeassistant.util.async_ import run_callback_threadsafe
 import homeassistant.util.dt as dt_util
 from homeassistant.util.location import distance
 
+from .const import (
+    CONF_REQ_MOVEMENT, CONF_TIME_AS, DOMAIN, TIME_AS_OPTS, TZ_DEVICE_LOCAL,
+    TZ_DEVICE_UTC, TZ_LOCAL, TZ_UTC)
+
 _LOGGER = logging.getLogger(__name__)
-
-__version__ = '1.11.2'
-
-CONF_TIME_AS = 'time_as'
-CONF_REQ_MOVEMENT = 'require_movement'
-
-TZ_UTC = 'utc'
-TZ_LOCAL = 'local'
-TZ_DEVICE_UTC = 'device_or_utc'
-TZ_DEVICE_LOCAL = 'device_or_local'
-# First item in list is default.
-TIME_AS_OPTS = [TZ_UTC, TZ_LOCAL, TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]
 
 ATTR_CHARGING = 'charging'
 ATTR_LAST_SEEN = 'last_seen'
@@ -95,8 +87,7 @@ class CompositeScanner:
         self._entity_id = ENTITY_ID_FORMAT.format(self._dev_id)
         self._time_as = config[CONF_TIME_AS]
         if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
-            from timezonefinderL import TimezoneFinder
-            self._tf = TimezoneFinder()
+            self._tf = hass.data[DOMAIN]
         self._req_movement = config[CONF_REQ_MOVEMENT]
         self._lock = threading.Lock()
         self._prev_seen = None
