@@ -12,6 +12,8 @@ import homeassistant.helpers.config_validation as cv
 
 from .const import CONF_TIME_AS, DOMAIN, TZ_DEVICE_LOCAL, TZ_DEVICE_UTC
 
+__version__ = '2.0.0'
+
 CONF_TZ_FINDER = 'tz_finder'
 DEFAULT_TZ_FINDER = 'timezonefinderL==4.0.2'
 

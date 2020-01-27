@@ -30,8 +30,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = '2.0.0b0'
-
 ATTR_CHARGING = 'charging'
 ATTR_LAST_SEEN = 'last_seen'
 ATTR_LAST_ENTITY_ID = 'last_entity_id'
