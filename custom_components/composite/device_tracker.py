@@ -10,7 +10,6 @@ from homeassistant.components.device_tracker import (
     ATTR_BATTERY, ATTR_SOURCE_TYPE, PLATFORM_SCHEMA,
     SOURCE_TYPE_BLUETOOTH, SOURCE_TYPE_BLUETOOTH_LE, SOURCE_TYPE_GPS,
     SOURCE_TYPE_ROUTER)
-from homeassistant.components.device_tracker.const import ENTITY_ID_FORMAT
 from homeassistant.components.zone import ENTITY_ID_HOME
 from homeassistant.components.zone import async_active_zone
 from homeassistant.const import (
@@ -87,7 +86,7 @@ class CompositeScanner:
                 SOURCE_TYPE: None,
                 DATA: None}
         self._dev_id = config[CONF_NAME]
-        self._entity_id = ENTITY_ID_FORMAT.format(self._dev_id)
+        self._entity_id = f"device_tracker.{self._dev_id}"
         self._time_as = config[CONF_TIME_AS]
         if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
             self._tf = hass.data[DOMAIN]
