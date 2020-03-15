@@ -73,9 +73,7 @@ If a watched device has a `battery` or `battery_level` attribute, that will be u
 
 The watched devices, and the composite device, should all have `track` set to `true`.
 
-It's recommended, as well, to set `hide_if_away` to `true` for the watched devices (but leave it set to `false` for the composite device.) This way the map will only show the composite device (of course when it is out of the home zone.) **NOTE:** The downside to hiding the watched devices, though, is that their history (other than when they're home) will not get recorded and hence will not be available in history views. (In history views they will appear to always be home.) Also they are hidden *everywhere* in the UI when not home (not just the map.)
-
-Lastly, it is also recommended to _not_ use the native merge feature of the device tracker component (i.e., do not add the MAC address from network-based trackers to a GPS-based tracker. See more details in the [Device Tracker doc page](https://www.home-assistant.io/components/device_tracker/#using-gps-device-trackers-with-local-network-device-trackers).)
+It is recommended to _not_ use the native merge feature of the device tracker component (i.e., do not add the MAC address from network-based trackers to a GPS-based tracker. See more details in the [Device Tracker doc page](https://www.home-assistant.io/components/device_tracker/#using-gps-device-trackers-with-local-network-device-trackers).)
 
 ## Attributes
 
