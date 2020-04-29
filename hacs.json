@@ -1,0 +1,5 @@
+{
+    "name": "Composite Device Tracker",
+    "domains": ["device_tracker"],
+    "homeassistant": "0.98.0"
+}
