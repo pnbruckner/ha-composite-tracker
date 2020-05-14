@@ -4,9 +4,7 @@ This platform creates a composite device tracker from one or more other device t
 
 Currently device_tracker's with a source_type of bluetooth, bluetooth_le, gps or router are supported, as well as binary_sensor's.
 
-## Installation
-
-Follow either the HACS or manual installation instructions below.
+Follow the installation instructions below.
 Then add the desired configuration. Here is an example of a typical configuration:
 
 ```yaml
@@ -19,13 +17,9 @@ device_tracker:
       - device_tracker.platform2_me
 ```
 
-### HACS
+## Installation
 
-See [HACS](https://github.com/custom-components/hacs).
-
-### Manual
-
-Alternatively, place a copy of:
+Place a copy of:
 
 [`__init__.py`](custom_components/composite/__init__.py) at `<config>/custom_components/composite/__init__.py`  
 [`const.py`](custom_components/composite/const.py) at `<config>/custom_components/composite/const.py`  
