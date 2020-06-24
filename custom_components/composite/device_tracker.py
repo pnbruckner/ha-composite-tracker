@@ -126,13 +126,23 @@ class CompositeScanner:
             SOURCE_TYPE: source_type,
             DATA: data})
 
+    def _get_zone(self, state):
+        zone_name = "zone." + state.lower().replace(" ", "_")
+        return self._hass.states.get(zone_name)
+
+    def _get_zone_coords(self, state):
+       zone = self._get_zone(state)
+       lat = zone.attributes[ATTR_LATITUDE]
+       lon = zone.attributes[ATTR_LONGITUDE]
+       return lat, lon
+        
     def _use_non_gps_data(self, state):
-        if state == STATE_HOME:
+        if state == STATE_HOME or self._get_zone(state) != None:
             return True
         entities = self._entities.values()
         if any(entity[SOURCE_TYPE] == SOURCE_TYPE_GPS for entity in entities):
             return False
-        return all(entity[DATA] != STATE_HOME
+        return all(entity[DATA] != STATE_HOME and self._get_zone(entity[DATA]) == None
                    for entity in entities
                    if entity[SOURCE_TYPE] in SOURCE_TYPE_NON_GPS)
 
@@ -281,6 +291,16 @@ class CompositeScanner:
                         self._hass.config.longitude)
                     gps_accuracy = 0
                     source_type = SOURCE_TYPE_GPS
+                # Otherwise, if new state is a valid zone AND is not 'not_home', look up the configured zone coordinates
+                # and make source_type gps.
+                elif (
+                    state != STATE_NOT_HOME
+                    and (cur_state is None or cur_state.state != STATE_HOME)
+                    and self._get_zone(state) != None
+                ):
+                   gps = self._get_zone_coords(state)
+                   gps_accuracy = 0
+                   source_type = SOURCE_TYPE_GPS
                 # Otherwise, don't use any GPS data, but set location_name to
                 # new state.
                 else:
