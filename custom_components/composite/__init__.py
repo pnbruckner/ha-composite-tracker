@@ -13,11 +13,18 @@ from .const import CONF_TIME_AS, DOMAIN, TZ_DEVICE_LOCAL, TZ_DEVICE_UTC
 
 CONF_TZ_FINDER = "tz_finder"
 DEFAULT_TZ_FINDER = "timezonefinderL==4.0.2"
+CONF_TZ_FINDER_CLASS = "tz_finder_class"
+TZ_FINDER_CLASS_OPTS = ["TimezoneFinder", "TimezoneFinderL"]
 
 CONFIG_SCHEMA = vol.Schema(
     {
         vol.Optional(DOMAIN, default=dict): vol.Schema(
-            {vol.Optional(CONF_TZ_FINDER, default=DEFAULT_TZ_FINDER): cv.string}
+            {
+                vol.Optional(CONF_TZ_FINDER, default=DEFAULT_TZ_FINDER): cv.string,
+                vol.Optional(
+                    CONF_TZ_FINDER_CLASS, default=TZ_FINDER_CLASS_OPTS[0]
+                ): vol.In(TZ_FINDER_CLASS_OPTS),
+            }
         ),
     },
     extra=vol.ALLOW_EXTRA,
@@ -48,8 +55,16 @@ def setup(hass, config):
 
         if pkg.split("==")[0].strip().endswith("L"):
             from timezonefinderL import TimezoneFinder
-        else:
+
+            tf = TimezoneFinder()
+        elif config[DOMAIN][CONF_TZ_FINDER_CLASS] == "TimezoneFinder":
             from timezonefinder import TimezoneFinder
-        hass.data[DOMAIN] = TimezoneFinder()
+
+            tf = TimezoneFinder()
+        else:
+            from timezonefinder import TimezoneFinderL
+
+            tf = TimezoneFinderL()
+        hass.data[DOMAIN] = tf
 
     return True
