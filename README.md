@@ -45,7 +45,13 @@ sudo apt install libatlas3-base
 
 `timezonefinderL==2.0.1`  
 `timezonefinder`  
+`timezonefinder<6`  
 `timezonefinder==4.2.0`
+
+- **tz_finder_class** (*Optional*): Specifies which class to use. Only applies when using `timezonefinder` package. Valid options are `TimezoneFinder` and `TimezoneFinderL`. The default is `TimezoneFinder`.
+
+>Note: Starting with release 4.4.0 the `timezonefinder` package provides two classes to choose from: the original `TimezoneFinder` class, and a new class named `TimezoneFinderL`, which effectively replaces the functionality of the `timezonefinderL` package.
+
 ### `device_tracker` platform
 
 - **entity_id**: Entity IDs of watched device tracker devices. Can be a single entity ID, a list of entity IDs, or a string containing multiple entity IDs separated by commas.
@@ -88,7 +94,8 @@ time_zone | The name of the time zone in which the device is located, or `unknow
 ### Example Full Config
 ```yaml
 composite:
-  tz_finder: timezonefinderL==2.0.1
+  tz_finder: timezonefinder<6
+  tz_finder_class: TimezoneFinderL
 device_tracker:
   - platform: composite
     name: me
