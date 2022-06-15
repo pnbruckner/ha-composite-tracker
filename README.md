@@ -15,6 +15,7 @@ device_tracker:
     entity_id:
       - device_tracker.platform1_me
       - device_tracker.platform2_me
+      - binary_sensor.i_am_home
 ```
 
 ## Installation
@@ -58,7 +59,7 @@ sudo apt install libatlas3-base
 
 ### `device_tracker` platform
 
-- **entity_id**: Entity IDs of watched device tracker devices. Can be a single entity ID, a list of entity IDs, or a string containing multiple entity IDs separated by commas.
+- **entity_id**: Entity IDs of watched device tracker devices. Can be a single entity ID, a list of entity IDs, or a string containing multiple entity IDs separated by commas. Another option is to specify a dictionary with `entity` specifying the entity ID, and `all_states` specifying a boolean value that controls whether or not to use all states of the entity (rather than just the "Home" state, which is the default.)
 - **name**: Object ID (i.e., part of entity ID after the dot) of composite device. For example, `NAME` would result in an entity ID of `device_tracker.NAME`.
 - **require_movement** (*Optional*): `true` or `false`. Default is `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
 - **time_as** (*Optional*): One of `utc`, `local`, `device_or_utc` or `device_or_local`. Default is `utc` which shows time attributes in UTC. `local` shows time attributes per HA's `time_zone` configuration. `device_or_utc` and `device_or_local` attempt to determine the time zone in which the device is located based on its GPS coordinates. The name of the time zone (or `unknown`) will be shown in a new attribute named `time_zone`. If the time zone can be determined, then time attributes will be shown in that time zone. If the time zone cannot be determined, then time attributes will be shown in UTC if `device_or_utc` is selected, or in HA's local time zone if `device_or_local` is selected.
@@ -67,7 +68,7 @@ sudo apt install libatlas3-base
 
 Watched GPS-based devices must have, at a minimum, the following attributes: `latitude`, `longitude` and `gps_accuracy`. If they don't they will not be used.
 
-For watched non-GPS-based devices, which states are used and whether any GPS data (if present) is used depends on several factors. E.g., if GPS-based devices are in use then the 'not_home'/'off' state of non-GPS-based devices will be ignored. If only non-GPS-based devices are in use, then the composite device will be 'home' if any of the watched devices are 'home'/'on', and will be 'not_home' only when _all_ the watched devices are 'not_home'/'off'.
+For watched non-GPS-based devices, which states are used and whether any GPS data (if present) is used depends on several factors. E.g., if GPS-based devices are in use then the 'not_home'/'off' state of non-GPS-based devices will be ignored (unless `all_states` was specified as `true` for that entity.) If only non-GPS-based devices are in use, then the composite device will be 'home' if any of the watched devices are 'home'/'on', and will be 'not_home' only when _all_ the watched devices are 'not_home'/'off'.
 
 If a watched device has a `last_seen` attribute, that will be used in the composite device. If not, then `last_updated` from the entity's state will be used instead.
 
@@ -108,6 +109,9 @@ device_tracker:
     entity_id:
       - device_tracker.platform1_me
       - device_tracker.platform2_me
+      - device_tracker.router_my_device
+      - entity: binary_sensor.i_am_home
+        all_states: true
 ```
 
 ### Time zone examples
