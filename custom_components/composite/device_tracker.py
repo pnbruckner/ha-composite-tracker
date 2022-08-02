@@ -30,6 +30,7 @@ from homeassistant.const import (
     STATE_HOME,
     STATE_NOT_HOME,
     STATE_ON,
+    STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
 import homeassistant.helpers.config_validation as cv
@@ -172,7 +173,7 @@ class CompositeScanner:
         return utc
 
     def _update_info(self, entity_id, old_state, new_state):
-        if new_state is None:
+        if new_state is None or new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
             return
 
         with self._lock:
