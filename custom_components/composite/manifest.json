@@ -1,7 +1,7 @@
 {
   "domain": "composite",
   "name": "Composite",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/master/README.md",
   "issue_tracker": "https://github.com/pnbruckner/ha-composite-tracker/issues",
   "requirements": [],
