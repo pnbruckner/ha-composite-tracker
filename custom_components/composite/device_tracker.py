@@ -9,6 +9,7 @@ from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import (
     ATTR_BATTERY,
     ATTR_SOURCE_TYPE,
+    DOMAIN as DT_DOMAIN,
     PLATFORM_SCHEMA,
     SOURCE_TYPE_BLUETOOTH,
     SOURCE_TYPE_BLUETOOTH_LE,
@@ -26,7 +27,6 @@ from homeassistant.const import (
     ATTR_LONGITUDE,
     CONF_ENTITY_ID,
     CONF_NAME,
-    EVENT_HOMEASSISTANT_START,
     STATE_HOME,
     STATE_NOT_HOME,
     STATE_ON,
@@ -40,6 +40,8 @@ import homeassistant.util.dt as dt_util
 from homeassistant.util.location import distance
 
 from .const import (
+    CONF_ALL_STATES,
+    CONF_ENTITY,
     CONF_REQ_MOVEMENT,
     CONF_TIME_AS,
     DOMAIN,
@@ -47,7 +49,6 @@ from .const import (
     TZ_DEVICE_LOCAL,
     TZ_DEVICE_UTC,
     TZ_LOCAL,
-    TZ_UTC,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,6 +61,7 @@ ATTR_TIME_ZONE = "time_zone"
 INACTIVE = "inactive"
 ACTIVE = "active"
 WARNED = "warned"
+USE_ALL_STATES = "use_all_states"
 STATUS = "status"
 SEEN = "seen"
 SOURCE_TYPE = ATTR_SOURCE_TYPE
@@ -75,10 +77,40 @@ SOURCE_TYPE_NON_GPS = (
     SOURCE_TYPE_ROUTER,
 )
 
+
+def _entities(entities):
+    result = []
+    for entity in entities:
+        if isinstance(entity, dict):
+            result.append(entity)
+        else:
+            result.append(
+                {
+                    CONF_ENTITY: entity,
+                    CONF_ALL_STATES: False,
+                }
+            )
+    return result
+
+
+ENTITIES = vol.All(
+    cv.ensure_list,
+    [
+        vol.Any(
+            {
+                vol.Required(CONF_ENTITY): cv.entity_id,
+                vol.Required(CONF_ALL_STATES): cv.boolean,
+            },
+            cv.entity_id,
+            msg="Expected an entity ID",
+        )
+    ],
+    _entities,
+)
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_NAME): cv.slugify,
-        vol.Required(CONF_ENTITY_ID): cv.entity_ids,
+        vol.Required(CONF_ENTITY_ID): ENTITIES,
         vol.Optional(CONF_TIME_AS, default=TIME_AS_OPTS[0]): vol.In(TIME_AS_OPTS),
         vol.Optional(CONF_REQ_MOVEMENT, default=False): cv.boolean,
     }
@@ -107,15 +139,19 @@ class CompositeScanner:
         self._see = see
         entities = config[CONF_ENTITY_ID]
         self._entities = {}
-        for entity_id in entities:
+        entity_ids = []
+        for entity in entities:
+            entity_id = entity[CONF_ENTITY]
             self._entities[entity_id] = {
+                USE_ALL_STATES: entity[CONF_ALL_STATES],
                 STATUS: INACTIVE,
                 SEEN: None,
                 SOURCE_TYPE: None,
                 DATA: None,
             }
+            entity_ids.append(entity_id)
         self._dev_id = config[CONF_NAME]
-        self._entity_id = f"device_tracker.{self._dev_id}"
+        self._entity_id = f"{DT_DOMAIN}.{self._dev_id}"
         self._time_as = config[CONF_TIME_AS]
         if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
             self._tf = hass.data[DOMAIN]
@@ -123,9 +159,9 @@ class CompositeScanner:
         self._lock = threading.Lock()
         self._prev_seen = None
 
-        self._remove = track_state_change(hass, entities, self._update_info)
+        self._remove = track_state_change(hass, entity_ids, self._update_info)
 
-        for entity_id in entities:
+        for entity_id in entity_ids:
             self._update_info(entity_id, None, hass.states.get(entity_id))
 
     def _bad_entity(self, entity_id, message):
@@ -153,8 +189,8 @@ class CompositeScanner:
             {STATUS: ACTIVE, SEEN: seen, SOURCE_TYPE: source_type, DATA: data}
         )
 
-    def _use_non_gps_data(self, state):
-        if state == STATE_HOME:
+    def _use_non_gps_data(self, entity_id, state):
+        if state == STATE_HOME or self._entities[entity_id][USE_ALL_STATES]:
             return True
         entities = self._entities.values()
         if any(entity[SOURCE_TYPE] == SOURCE_TYPE_GPS for entity in entities):
@@ -262,7 +298,7 @@ class CompositeScanner:
 
                 self._good_entity(entity_id, last_seen, source_type, state)
 
-                if not self._use_non_gps_data(state):
+                if not self._use_non_gps_data(entity_id, state):
                     return
 
                 # Don't use new GPS data if it's not complete.

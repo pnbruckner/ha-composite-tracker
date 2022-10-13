@@ -1,6 +1,8 @@
 """Constants for Composite Integration."""
 DOMAIN = "composite"
 
+CONF_ALL_STATES = "all_states"
+CONF_ENTITY = "entity"
 CONF_REQ_MOVEMENT = "require_movement"
 CONF_TIME_AS = "time_as"
 
