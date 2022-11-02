@@ -30,6 +30,8 @@ from .const import (
     CONF_OPTS,
     CONF_TIME_AS,
     CONF_TRACKERS,
+    DATA_LEGACY_WARNED,
+    DATA_TF,
     DOMAIN,
     TZ_DEVICE_LOCAL,
     TZ_DEVICE_UTC,
@@ -82,6 +84,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass, config):
+    hass.data[DOMAIN] = {DATA_LEGACY_WARNED: False}
+
     # Get a list of all the object IDs in known_devices.yaml to see if any were created
     # when this integration was a legacy device tracker, or would otherwise conflict
     # with IDs in our config.
@@ -185,7 +189,7 @@ async def async_setup(hass, config):
             from timezonefinder import TimezoneFinderL
 
             tf = TimezoneFinderL()
-        hass.data[DOMAIN] = tf
+        hass.data[DOMAIN][DATA_TF] = tf
 
     return True
 

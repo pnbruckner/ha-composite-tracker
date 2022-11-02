@@ -71,6 +71,8 @@ from .const import (
     CONF_REQ_MOVEMENT,
     CONF_TIME_AS,
     CONF_TRACKERS,
+    DATA_LEGACY_WARNED,
+    DATA_TF,
     DOMAIN,
     TIME_AS_OPTS,
     TZ_DEVICE_LOCAL,
@@ -141,30 +143,32 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(COMPOSITE_TRACKER)
 def setup_scanner(hass, config, see, discovery_info=None):
     """Set up a device scanner."""
     CompositeScanner(hass, config, see)
-    _LOGGER.warning(
-        '"%s: %s" under %s is deprecated. Move to "%s: %s"',
-        CONF_PLATFORM,
-        DOMAIN,
-        DT_DOMAIN,
-        DOMAIN,
-        CONF_TRACKERS,
-    )
-    pn_async_create(
-        hass,
-        title="Composite configuration has changed",
-        message="```text\n"
-        f"{DT_DOMAIN}:\n"
-        f"- platform: {DOMAIN}\n"
-        "  <TRACKER CONFIG>\n\n"
-        "```\n"
-        "is deprecated. Move to:\n\n"
-        "```text\n"
-        f"{DOMAIN}:\n"
-        f"  {CONF_TRACKERS}:\n"
-        "  - <TRACKER_CONFIG>\n"
-        "```\n\n"
-        "Also remove entries from known_devices.yaml.",
-    )
+    if not hass.data[DOMAIN][DATA_LEGACY_WARNED]:
+        _LOGGER.warning(
+            '"%s: %s" under %s is deprecated. Move to "%s: %s"',
+            CONF_PLATFORM,
+            DOMAIN,
+            DT_DOMAIN,
+            DOMAIN,
+            CONF_TRACKERS,
+        )
+        pn_async_create(
+            hass,
+            title="Composite configuration has changed",
+            message="```text\n"
+            f"{DT_DOMAIN}:\n"
+            f"- platform: {DOMAIN}\n"
+            "  <TRACKER CONFIG>\n\n"
+            "```\n"
+            "is deprecated. Move to:\n\n"
+            "```text\n"
+            f"{DOMAIN}:\n"
+            f"  {CONF_TRACKERS}:\n"
+            "  - <TRACKER_CONFIG>\n"
+            "```\n\n"
+            "Also remove entries from known_devices.yaml.",
+        )
+        hass.data[DOMAIN][DATA_LEGACY_WARNED] = True
     return True
 
 
@@ -322,7 +326,7 @@ class CompositeScanner:
         self._entity_id = f"{DT_DOMAIN}.{self._dev_id}"
         self._time_as = config[CONF_TIME_AS]
         if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
-            self._tf = hass.data[DOMAIN]
+            self._tf = hass.data[DOMAIN][DATA_TF]
         self._req_movement = config[CONF_REQ_MOVEMENT]
         self._lock = threading.Lock()
 
