@@ -1,10 +1,13 @@
 """Constants for Composite Integration."""
+from homeassistant.const import CONF_ENTITY_ID
+
 DOMAIN = "composite"
 
 CONF_ALL_STATES = "all_states"
 CONF_ENTITY = "entity"
 CONF_REQ_MOVEMENT = "require_movement"
 CONF_TIME_AS = "time_as"
+CONF_TRACKERS = "trackers"
 
 TZ_UTC = "utc"
 TZ_LOCAL = "local"
@@ -12,3 +15,5 @@ TZ_DEVICE_UTC = "device_or_utc"
 TZ_DEVICE_LOCAL = "device_or_local"
 # First item in list is default.
 TIME_AS_OPTS = [TZ_UTC, TZ_LOCAL, TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]
+
+CONF_OPTS = (CONF_ENTITY_ID, CONF_REQ_MOVEMENT, CONF_TIME_AS)
