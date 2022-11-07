@@ -1,4 +1,5 @@
 """A Device Tracker platform that combines one or more device trackers."""
+import asyncio
 from datetime import datetime, timedelta
 import logging
 import threading
@@ -184,6 +185,14 @@ def nearest_second(time):
     )
 
 
+def _config_from_entry(entry):
+    if not entry.options:
+        return None
+    scanner_config = {CONF_NAME: entry.data[CONF_ID]}
+    scanner_config.update(entry.options)
+    return scanner_config
+
+
 class CompositeDeviceTracker(TrackerEntity):
     """Composite Device Tracker."""
 
@@ -202,8 +211,12 @@ class CompositeDeviceTracker(TrackerEntity):
         id = entry.data[CONF_ID]
         self._attr_unique_id = id
         self.entity_id = f"{DT_DOMAIN}.{id}"
-        self._scanner_config = {CONF_NAME: entry.data[CONF_ID]}
-        self._scanner_config.update(entry.options)
+        self._scanner_config = _config_from_entry(entry)
+        self._lock = asyncio.Lock()
+
+        self.async_on_remove(
+            entry.add_update_listener(self._async_config_entry_updated)
+        )
 
     @property
     def unique_id(self):
@@ -263,6 +276,19 @@ class CompositeDeviceTracker(TrackerEntity):
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
+        async with self._lock:
+            await self._setup_scanner()
+
+    async def async_will_remove_from_hass(self):
+        """Run when entity will be removed from hass."""
+        async with self._lock:
+            await self._shutdown_scanner()
+        await super().async_will_remove_from_hass()
+
+    async def _setup_scanner(self):
+        """Set up device scanner."""
+        if not self._scanner_config or self._scanner:
+            return
 
         def setup_scanner():
             """Set up device scanner."""
@@ -270,17 +296,27 @@ class CompositeDeviceTracker(TrackerEntity):
 
         await self.hass.async_add_executor_job(setup_scanner)
 
-    async def async_will_remove_from_hass(self):
-        """Run when entity will be removed from hass."""
+    async def _shutdown_scanner(self):
+        """Shutdown device scanner."""
+        if not self._scanner:
+            return
 
         def shutdown_scanner():
             """Shutdown device scanner."""
             self._scanner.shutdown()
             self._scanner = None
 
-        if self._scanner:
-            await self.hass.async_add_executor_job(shutdown_scanner)
-        await super().async_will_remove_from_hass()
+        await self.hass.async_add_executor_job(shutdown_scanner)
+
+    async def _async_config_entry_updated(self, _, entry):
+        """Run when the config entry has been updated."""
+        new_scanner_config = _config_from_entry(entry)
+        if new_scanner_config == self._scanner_config:
+            return
+        async with self._lock:
+            await self._shutdown_scanner()
+            self._scanner_config = new_scanner_config
+            await self._setup_scanner()
 
     def _see(
         self, dev_id, location_name, gps, gps_accuracy, battery, attributes, source_type
@@ -344,6 +380,11 @@ class CompositeScanner:
         if self._remove:
             self._remove()
             self._remove = None
+            # In case an update started just prior to call to self._remove above, wait
+            # for it to complete so that our caller will know, when we return, this
+            # CompositeScanner instance is completely stopped.
+            with self._lock():
+                pass
 
     def _bad_entity(self, entity_id, message):
         msg = "{} {}".format(entity_id, message)
