@@ -1,8 +1,8 @@
 {
   "domain": "composite",
   "name": "Composite",
-  "version": "2.4.0b0",
-  "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/master/README.md",
+  "version": "2.4.0b1",
+  "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/entity-based/README.md",
   "issue_tracker": "https://github.com/pnbruckner/ha-composite-tracker/issues",
   "requirements": [],
   "dependencies": [],
