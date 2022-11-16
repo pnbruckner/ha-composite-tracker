@@ -131,7 +131,7 @@ async def async_setup(hass, config):
             )
         else:
 
-            async def create_config(conf):
+            async def create_config(conf, options):
                 """Create new config entry."""
                 result = await hass.config_entries.flow.async_init(
                     DOMAIN, context={"source": SOURCE_IMPORT}, data=conf
@@ -142,7 +142,7 @@ async def async_setup(hass, config):
                     result["result"], options=options
                 )
 
-            hass.async_create_task(create_config(conf))
+            hass.async_create_task(create_config(conf, options))
 
     if conflict_ids:
         _LOGGER.warning("%s in %s: skipping", ", ".join(conflict_ids), YAML_DEVICES)
@@ -201,7 +201,7 @@ async def async_setup_entry(hass, entry):
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # async_setup_platforms was new in 2021.5
     elif hasattr(hass.config_entries, "async_setup_platforms"):
-        await hass.config_entries.async_setup_platforms(entry, PLATFORMS)
+        hass.config_entries.async_setup_platforms(entry, PLATFORMS)
     else:
         for platform in PLATFORMS:
             hass.async_create_task(
