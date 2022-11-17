@@ -1,5 +1,4 @@
 """Composite Device Tracker."""
-import asyncio
 import logging
 
 import voluptuous as vol
@@ -12,22 +11,12 @@ from homeassistant.components.device_tracker.legacy import YAML_DEVICES
 from homeassistant.components.persistent_notification import (
     async_create as pn_async_create,
 )
-from homeassistant.const import CONF_ID, CONF_NAME, CONF_PLATFORM
-
-# Platform class did not exist before 2021.12
-try:
-    from homeassistant.const import Platform
-
-    PLATFORMS = [Platform.DEVICE_TRACKER]
-except ImportError:
-    PLATFORMS = [DT_DOMAIN]
-
+from homeassistant.const import CONF_ID, CONF_NAME, CONF_PLATFORM, Platform
 from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import slugify
 
 from .const import (
-    CONF_OPTS,
     CONF_TIME_AS,
     CONF_TRACKERS,
     DATA_LEGACY_WARNED,
@@ -35,12 +24,14 @@ from .const import (
     DOMAIN,
     TZ_DEVICE_LOCAL,
     TZ_DEVICE_UTC,
+    split_conf,
 )
 from .device_tracker import COMPOSITE_TRACKER
 
 CONF_TZ_FINDER = "tz_finder"
 DEFAULT_TZ_FINDER = "timezonefinderL==4.0.2"
 CONF_TZ_FINDER_CLASS = "tz_finder_class"
+PLATFORMS = [Platform.DEVICE_TRACKER]
 TZ_FINDER_CLASS_OPTS = ["TimezoneFinder", "TimezoneFinderL"]
 TRACKER = COMPOSITE_TRACKER.copy()
 TRACKER.update({vol.Required(CONF_NAME): cv.string, vol.Optional(CONF_ID): cv.slugify})
@@ -116,33 +107,19 @@ async def async_setup(hass, config):
     tracker_configs = config[DOMAIN][CONF_TRACKERS]
     conflict_ids = []
     for conf in tracker_configs:
-        # These go in the "static" data field.
         id = conf[CONF_ID]
-        name = conf[CONF_NAME]
-        # These go in the options field, which can be updated via the UI (once support
-        # for that is added.)
-        options = {k: v for k, v in conf.items() if k in CONF_OPTS}
+        kwargs = split_conf(conf)
 
         if id in legacy_ids:
             conflict_ids.append(id)
         elif id in cfg_entries:
-            hass.config_entries.async_update_entry(
-                cfg_entries[id], data={CONF_NAME: name, CONF_ID: id}, options=options
-            )
+            hass.config_entries.async_update_entry(cfg_entries[id], **kwargs)
         else:
-
-            async def create_config(conf, options):
-                """Create new config entry."""
-                result = await hass.config_entries.flow.async_init(
-                    DOMAIN, context={"source": SOURCE_IMPORT}, data=conf
+            hass.async_create_task(
+                hass.config_entries.flow.async_init(
+                    DOMAIN, context={"source": SOURCE_IMPORT}, **kwargs
                 )
-                # Versions prior to 2021.6 did not support creating with options, so
-                # update the created config entry with the options.
-                hass.config_entries.async_update_entry(
-                    result["result"], options=options
-                )
-
-            hass.async_create_task(create_config(conf, options))
+            )
 
     if conflict_ids:
         _LOGGER.warning("%s in %s: skipping", ", ".join(conflict_ids), YAML_DEVICES)
@@ -197,30 +174,13 @@ async def async_setup(hass, config):
 async def async_setup_entry(hass, entry):
     """Set up config entry."""
     # async_forward_entry_setups was new in 2022.8
-    if hasattr(hass.config_entries, "async_forward_entry_setups"):
+    try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    # async_setup_platforms was new in 2021.5
-    elif hasattr(hass.config_entries, "async_setup_platforms"):
+    except AttributeError:
         hass.config_entries.async_setup_platforms(entry, PLATFORMS)
-    else:
-        for platform in PLATFORMS:
-            hass.async_create_task(
-                hass.config_entries.async_forward_entry_setup(entry, platform)
-            )
     return True
 
 
 async def async_unload_entry(hass, entry):
     """Unload a config entry."""
-    # async_unload_platforms was new in 2021.5
-    if hasattr(hass.config_entries, "async_unload_platforms"):
-        return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    else:
-        return all(
-            await asyncio.gather(
-                *(
-                    hass.config_entries.async_forward_entry_unload(entry, platform)
-                    for platform in PLATFORMS
-                )
-            )
-        )
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

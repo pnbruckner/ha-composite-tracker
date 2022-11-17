@@ -2,7 +2,7 @@
 from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_ID, CONF_NAME
 
-from .const import DOMAIN
+from .const import DOMAIN, split_conf
 
 
 class CompositeConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -12,15 +12,9 @@ class CompositeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_import(self, data):
         """Import config entry from configuration."""
-        name = data[CONF_NAME]
-        id = data[CONF_ID]
-
-        await self.async_set_unique_id(id)
+        await self.async_set_unique_id(data[CONF_ID])
         self._abort_if_unique_id_configured()
 
-        # Versions prior to 2021.6 did not support creating with options, so only save
-        # main (name/ID) data here. async_setup in __init__.py will update the entry
-        # with the options.
         return self.async_create_entry(
-            title=f"{name} (from configuration)", data={CONF_NAME: name, CONF_ID: id}
+            title=f"{data[CONF_NAME]} (from configuration)", **split_conf(data)
         )

@@ -229,16 +229,6 @@ class CompositeDeviceTracker(TrackerEntity):
         return self._attr_name
 
     @property
-    def device_state_attributes(self):
-        """Return entity specific state attributes."""
-        return self._attr_extra_state_attributes
-
-    @property
-    def extra_state_attributes(self):
-        """Return entity specific state attributes."""
-        return self._attr_extra_state_attributes
-
-    @property
     def force_update(self):
         """Return True if state updates should be forced."""
         return False
