@@ -69,6 +69,10 @@ sudo apt install libatlas3-base
 
 ## Configuration variables
 
+- **default_options** (*Optional*): Defines default values for corresponding options under **trackers**.
+  - **require_movement** (*Optional*): Default is `false`.
+  - **time_as** (*Optional*): Default is `utc`.
+
 - **trackers** (*Optional*): The list of composite trackers to create. For each entry see [Tracker entries](#tracker-entries).
 NOTE: Once legacy support is removed, this variable, with at least one entry, will become required.
 
@@ -88,8 +92,8 @@ NOTE: Once legacy support is removed, this variable, with at least one entry, wi
 - **entity_id**: Entity IDs of watched device tracker devices. Can be a single entity ID, a list of entity IDs, or a string containing multiple entity IDs separated by commas. Another option is to specify a dictionary with `entity` specifying the entity ID, and `all_states` specifying a boolean value that controls whether or not to use all states of the entity (rather than just the "Home" state, which is the default.)
 - **name**: Friendly name of composite device.
 - **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in an entity ID of `device_tracker.my_name`.
-- **require_movement** (*Optional*): `true` or `false`. Default is `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
-- **time_as** (*Optional*): One of `utc`, `local`, `device_or_utc` or `device_or_local`. Default is `utc` which shows time attributes in UTC. `local` shows time attributes per HA's `time_zone` configuration. `device_or_utc` and `device_or_local` attempt to determine the time zone in which the device is located based on its GPS coordinates. The name of the time zone (or `unknown`) will be shown in a new attribute named `time_zone`. If the time zone can be determined, then time attributes will be shown in that time zone. If the time zone cannot be determined, then time attributes will be shown in UTC if `device_or_utc` is selected, or in HA's local time zone if `device_or_local` is selected.
+- **require_movement** (*Optional*): `true` or `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
+- **time_as** (*Optional*): One of `utc`, `local`, `device_or_utc` or `device_or_local`. `utc` shows time attributes in UTC. `local` shows time attributes per HA's `time_zone` configuration. `device_or_utc` and `device_or_local` attempt to determine the time zone in which the device is located based on its GPS coordinates. The name of the time zone (or `unknown`) will be shown in a new attribute named `time_zone`. If the time zone can be determined, then time attributes will be shown in that time zone. If the time zone cannot be determined, then time attributes will be shown in UTC if `device_or_utc` is selected, or in HA's local time zone if `device_or_local` is selected.
 
 ## Watched device notes
 
@@ -128,16 +132,22 @@ time_zone | The name of the time zone in which the device is located, or `unknow
 composite:
   tz_finder: timezonefinder<6
   tz_finder_class: TimezoneFinderL
+  default_options:
+    time_as: device_or_local
+    require_movement: true
   trackers:
     - name: Me
-      time_as: device_or_local
-      require_movement: true
+      time_as: local
       entity_id:
         - device_tracker.platform1_me
         - device_tracker.platform2_me
         - device_tracker.router_my_device
         - entity: binary_sensor.i_am_home
           all_states: true
+    - name: Better Half
+      id: wife
+      require_movement: false
+      entity_id: device_tracker.platform_wife
 ```
 
 ### Time zone examples
