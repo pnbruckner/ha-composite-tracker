@@ -89,11 +89,17 @@ NOTE: Once legacy support is removed, this variable, with at least one entry, wi
 
 ### Tracker entries
 
-- **entity_id**: Entity IDs of watched device tracker devices. Can be a single entity ID, a list of entity IDs, or a string containing multiple entity IDs separated by commas. Another option is to specify a dictionary with `entity` specifying the entity ID, and `all_states` specifying a boolean value that controls whether or not to use all states of the entity (rather than just the "Home" state, which is the default.)
+- **entity_id**: Specifies the watched entities. Can be an entity ID, a dictionary (see [Entity Dictionary](#entity-dictionary)), or a list containing any combination of these.
 - **name**: Friendly name of composite device.
 - **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in an entity ID of `device_tracker.my_name`.
 - **require_movement** (*Optional*): `true` or `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
 - **time_as** (*Optional*): One of `utc`, `local`, `device_or_utc` or `device_or_local`. `utc` shows time attributes in UTC. `local` shows time attributes per HA's `time_zone` configuration. `device_or_utc` and `device_or_local` attempt to determine the time zone in which the device is located based on its GPS coordinates. The name of the time zone (or `unknown`) will be shown in a new attribute named `time_zone`. If the time zone can be determined, then time attributes will be shown in that time zone. If the time zone cannot be determined, then time attributes will be shown in UTC if `device_or_utc` is selected, or in HA's local time zone if `device_or_local` is selected.
+
+#### Entity Dictionary
+
+- **entity**: Entity ID of an entity to watch.
+- **all_states** (*Optional*): `true` or `false`. Default is `false`. If `true`, use all states of the entity. If `false`, only use the "Home" state. NOTE: This option is ignored for entities whose `source_type` is `gps` for which all states are always used.
+- **use_picture** (*Optional*): `true` or `false`. Default is `false`. If `true`, use the entity's picture for the composite. Can only be `true` for at most one of the entities.
 
 ## Watched device notes
 
@@ -139,7 +145,8 @@ composite:
     - name: Me
       time_as: local
       entity_id:
-        - device_tracker.platform1_me
+        - entity: device_tracker.platform1_me
+          use_picture: true
         - device_tracker.platform2_me
         - device_tracker.router_my_device
         - entity: binary_sensor.i_am_home
@@ -147,7 +154,9 @@ composite:
     - name: Better Half
       id: wife
       require_movement: false
-      entity_id: device_tracker.platform_wife
+      entity_id:
+        entity: device_tracker.platform_wife
+        use_picture: true
 ```
 
 ### Time zone examples
