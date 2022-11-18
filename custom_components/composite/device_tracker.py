@@ -1,8 +1,12 @@
 """A Device Tracker platform that combines one or more device trackers."""
+from __future__ import annotations
+
 import asyncio
-from datetime import datetime, timedelta
+from collections.abc import Callable, Iterable, MutableMapping
+from datetime import datetime, timedelta, tzinfo
 import logging
 import threading
+from typing import Any, cast
 
 import voluptuous as vol
 
@@ -11,7 +15,7 @@ from homeassistant.components.device_tracker import (
     ATTR_BATTERY,
     ATTR_SOURCE_TYPE,
     DOMAIN as DT_DOMAIN,
-    PLATFORM_SCHEMA,
+    PLATFORM_SCHEMA as PLATFORM_SCHEMA_BASE,
 )
 
 # SourceType was new in 2022.9
@@ -43,6 +47,7 @@ from homeassistant.components.persistent_notification import (
 )
 from homeassistant.components.zone import ENTITY_ID_HOME
 from homeassistant.components.zone import async_active_zone
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_BATTERY_CHARGING,
     ATTR_BATTERY_LEVEL,
@@ -60,8 +65,11 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import track_state_change
+from homeassistant.helpers.typing import GPSType
 from homeassistant.util.async_ import run_callback_threadsafe
 import homeassistant.util.dt as dt_util
 from homeassistant.util.location import distance
@@ -108,8 +116,9 @@ SOURCE_TYPE_NON_GPS = (
 )
 
 
-def _entities(entities):
-    result = []
+def _entities(entities: list[str | dict]) -> list[dict]:
+    """Convert entity ID to dict of entity & all_states."""
+    result: list[dict] = []
     for entity in entities:
         if isinstance(entity, dict):
             result.append(entity)
@@ -138,10 +147,15 @@ COMPOSITE_TRACKER = {
     vol.Optional(CONF_TIME_AS, default=TIME_AS_OPTS[0]): vol.In(TIME_AS_OPTS),
     vol.Optional(CONF_REQ_MOVEMENT, default=False): cv.boolean,
 }
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(COMPOSITE_TRACKER)
+PLATFORM_SCHEMA = PLATFORM_SCHEMA_BASE.extend(COMPOSITE_TRACKER)
 
 
-def setup_scanner(hass, config, see, discovery_info=None):
+def setup_scanner(
+    hass: HomeAssistant,
+    config: dict,
+    see: Callable[..., None],
+    discovery_info: dict[str, Any] | None = None,
+) -> bool:
     """Set up a device scanner."""
     CompositeScanner(hass, config, see)
     if not hass.data[DOMAIN][DATA_LEGACY_WARNED]:
@@ -173,19 +187,22 @@ def setup_scanner(hass, config, see, discovery_info=None):
     return True
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up the device tracker platform."""
     async_add_entities([CompositeDeviceTracker(entry)])
 
 
-def nearest_second(time):
+def nearest_second(time: datetime) -> datetime:
     """Round time to nearest second."""
     return time.replace(microsecond=0) + timedelta(
         seconds=0 if time.microsecond < 500000 else 1
     )
 
 
-def _config_from_entry(entry):
+def _config_from_entry(entry: ConfigEntry) -> dict | None:
+    """Get CompositeScanner config from config entry."""
     if not entry.options:
         return None
     scanner_config = {CONF_NAME: entry.data[CONF_ID]}
@@ -196,22 +213,24 @@ def _config_from_entry(entry):
 class CompositeDeviceTracker(TrackerEntity):
     """Composite Device Tracker."""
 
-    _attr_extra_state_attributes = None
-    _battery_level = None
-    _source_type = None
+    _attr_extra_state_attributes: MutableMapping[
+        str, Any
+    ] | None = None  # type: ignore[assignment]
+    _battery_level: int | None = None
+    _source_type: str | None = None
     _location_accuracy = 0
-    _location_name = None
-    _latitude = None
-    _longitude = None
-    _scanner = None
+    _location_name: str | None = None
+    _latitude: float | None = None
+    _longitude: float | None = None
+    _scanner: CompositeScanner | None = None
 
-    def __init__(self, entry):
+    def __init__(self, entry: ConfigEntry) -> None:
         """Initialize Composite Device Tracker."""
-        self._attr_name = entry.data[CONF_NAME]
-        id = entry.data[CONF_ID]
+        self._attr_name: str = entry.data[CONF_NAME]
+        id: str = entry.data[CONF_ID]
         self._attr_unique_id = id
         self.entity_id = f"{DT_DOMAIN}.{id}"
-        self._scanner_config = _config_from_entry(entry)
+        self._scanner_config: dict | None = _config_from_entry(entry)
         self._lock = asyncio.Lock()
 
         self.async_on_remove(
@@ -219,86 +238,80 @@ class CompositeDeviceTracker(TrackerEntity):
         )
 
     @property
-    def unique_id(self):
-        """Return a unique ID."""
-        return self._attr_unique_id
-
-    @property
-    def name(self):
-        """Return the name of the entity."""
-        return self._attr_name
-
-    @property
-    def force_update(self):
+    def force_update(self) -> bool:
         """Return True if state updates should be forced."""
         return False
 
     @property
-    def battery_level(self):
+    def battery_level(self) -> int | None:
         """Return the battery level of the device."""
         return self._battery_level
 
     @property
-    def source_type(self):
+    def source_type(self) -> str | None:  # type: ignore[override]
         """Return the source type of the device."""
         return self._source_type
 
     @property
-    def location_accuracy(self):
+    def location_accuracy(self) -> int:
         """Return the location accuracy of the device."""
         return self._location_accuracy
 
     @property
-    def location_name(self):
+    def location_name(self) -> str | None:
         """Return a location name for the current location of the device."""
         return self._location_name
 
     @property
-    def latitude(self):
+    def latitude(self) -> float | None:
         """Return the latitude value of the device."""
         return self._latitude
 
     @property
-    def longitude(self):
+    def longitude(self) -> float | None:
         """Rerturn the longitude value of the device."""
         return self._longitude
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
         async with self._lock:
             await self._setup_scanner()
 
-    async def async_will_remove_from_hass(self):
+    async def async_will_remove_from_hass(self) -> None:
         """Run when entity will be removed from hass."""
         async with self._lock:
             await self._shutdown_scanner()
         await super().async_will_remove_from_hass()
 
-    async def _setup_scanner(self):
+    async def _setup_scanner(self) -> None:
         """Set up device scanner."""
         if not self._scanner_config or self._scanner:
             return
 
-        def setup_scanner():
+        def setup_scanner() -> None:
             """Set up device scanner."""
-            self._scanner = CompositeScanner(self.hass, self._scanner_config, self._see)
+            self._scanner = CompositeScanner(
+                self.hass, cast(dict, self._scanner_config), self._see
+            )
 
         await self.hass.async_add_executor_job(setup_scanner)
 
-    async def _shutdown_scanner(self):
+    async def _shutdown_scanner(self) -> None:
         """Shutdown device scanner."""
         if not self._scanner:
             return
 
-        def shutdown_scanner():
+        def shutdown_scanner() -> None:
             """Shutdown device scanner."""
-            self._scanner.shutdown()
+            cast(CompositeScanner, self._scanner).shutdown()
             self._scanner = None
 
         await self.hass.async_add_executor_job(shutdown_scanner)
 
-    async def _async_config_entry_updated(self, _, entry):
+    async def _async_config_entry_updated(
+        self, hass: HomeAssistant, entry: ConfigEntry
+    ) -> None:
         """Run when the config entry has been updated."""
         new_scanner_config = _config_from_entry(entry)
         if new_scanner_config == self._scanner_config:
@@ -309,8 +322,16 @@ class CompositeDeviceTracker(TrackerEntity):
             await self._setup_scanner()
 
     def _see(
-        self, dev_id, location_name, gps, gps_accuracy, battery, attributes, source_type
-    ):
+        self,
+        *,
+        dev_id: str | None = None,
+        location_name: str | None = None,
+        gps: GPSType | None = None,
+        gps_accuracy: int | None = None,
+        battery: int | None = None,
+        attributes: dict | None = None,
+        source_type: str | None = SOURCE_TYPE_GPS,
+    ) -> None:
         """Process update from CompositeScanner."""
         self._battery_level = battery
         self._source_type = source_type
@@ -328,18 +349,20 @@ class CompositeDeviceTracker(TrackerEntity):
 class CompositeScanner:
     """Composite device scanner."""
 
-    _prev_seen = None
-    _remove = None
+    _prev_seen: datetime | None = None
+    _remove: CALLBACK_TYPE | None = None
 
-    def __init__(self, hass, config, see):
+    def __init__(
+        self, hass: HomeAssistant, config: dict, see: Callable[..., None]
+    ) -> None:
         """Initialize CompositeScanner."""
         self._hass = hass
         self._see = see
-        entities = config[CONF_ENTITY_ID]
-        self._entities = {}
-        entity_ids = []
+        entities: list[dict[str, Any]] = config[CONF_ENTITY_ID]
+        self._entities: dict[str, dict[str, Any]] = {}
+        entity_ids: list[str] = []
         for entity in entities:
-            entity_id = entity[CONF_ENTITY]
+            entity_id: str = entity[CONF_ENTITY]
             self._entities[entity_id] = {
                 USE_ALL_STATES: entity[CONF_ALL_STATES],
                 STATUS: INACTIVE,
@@ -348,12 +371,12 @@ class CompositeScanner:
                 DATA: None,
             }
             entity_ids.append(entity_id)
-        self._dev_id = config[CONF_NAME]
+        self._dev_id: str = config[CONF_NAME]
         self._entity_id = f"{DT_DOMAIN}.{self._dev_id}"
-        self._time_as = config[CONF_TIME_AS]
+        self._time_as: str = config[CONF_TIME_AS]
         if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
             self._tf = hass.data[DOMAIN][DATA_TF]
-        self._req_movement = config[CONF_REQ_MOVEMENT]
+        self._req_movement: bool = config[CONF_REQ_MOVEMENT]
         self._lock = threading.Lock()
 
         self._startup(entity_ids)
@@ -361,11 +384,11 @@ class CompositeScanner:
         for entity_id in entity_ids:
             self._update_info(entity_id, None, hass.states.get(entity_id))
 
-    def _startup(self, entity_ids):
+    def _startup(self, entity_ids: str | Iterable[str]) -> None:
         """Start updating."""
         self._remove = track_state_change(self._hass, entity_ids, self._update_info)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Stop updating."""
         if self._remove:
             self._remove()
@@ -373,11 +396,12 @@ class CompositeScanner:
             # In case an update started just prior to call to self._remove above, wait
             # for it to complete so that our caller will know, when we return, this
             # CompositeScanner instance is completely stopped.
-            with self._lock():
+            with self._lock:
                 pass
 
-    def _bad_entity(self, entity_id, message):
-        msg = "{} {}".format(entity_id, message)
+    def _bad_entity(self, entity_id: str, message: str) -> None:
+        """Mark entity ID as bad."""
+        msg = f"{entity_id} {message}"
         # Has there already been a warning for this entity?
         if self._entities[entity_id][STATUS] == WARNED:
             _LOGGER.error(msg)
@@ -393,12 +417,16 @@ class CompositeScanner:
             _LOGGER.debug(msg)
             self._entities[entity_id][STATUS] = ACTIVE
 
-    def _good_entity(self, entity_id, seen, source_type, data):
+    def _good_entity(
+        self, entity_id: str, seen: datetime, source_type: str, data: Any
+    ) -> None:
+        """Mark entity ID as good."""
         self._entities[entity_id].update(
             {STATUS: ACTIVE, SEEN: seen, SOURCE_TYPE: source_type, DATA: data}
         )
 
-    def _use_non_gps_data(self, entity_id, state):
+    def _use_non_gps_data(self, entity_id: str, state: str) -> bool:
+        """Determine if state should be used for non-GPS based entity."""
         if state == STATE_HOME or self._entities[entity_id][USE_ALL_STATES]:
             return True
         entities = self._entities.values()
@@ -410,14 +438,18 @@ class CompositeScanner:
             if entity[SOURCE_TYPE] in SOURCE_TYPE_NON_GPS
         )
 
-    def _dt_attr_from_utc(self, utc, tzone):
+    def _dt_attr_from_utc(self, utc: datetime, tzone: tzinfo | None) -> datetime:
+        """Determine state attribute value from datetime & timezone."""
         if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL] and tzone:
             return utc.astimezone(tzone)
         if self._time_as in [TZ_LOCAL, TZ_DEVICE_LOCAL]:
             return dt_util.as_local(utc)
         return utc
 
-    def _update_info(self, entity_id, old_state, new_state):
+    def _update_info(
+        self, entity_id: str, old_state: State | None, new_state: State | None
+    ) -> None:
+        """Update composite tracker from input entity state change."""
         if new_state is None or new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
             return
 
@@ -427,41 +459,44 @@ class CompositeScanner:
             # new state object. Make sure last_seen is timezone aware in UTC.
             # Note that dt_util.as_utc assumes naive datetime is in local
             # timezone.
-            last_seen = new_state.attributes.get(ATTR_LAST_SEEN)
+            last_seen: datetime | str | None = new_state.attributes.get(ATTR_LAST_SEEN)
             if isinstance(last_seen, datetime):
                 last_seen = dt_util.as_utc(last_seen)
             else:
                 try:
-                    last_seen = dt_util.utc_from_timestamp(float(last_seen))
+                    last_seen = dt_util.utc_from_timestamp(float(last_seen))  # type: ignore[arg-type]
                 except (TypeError, ValueError):
                     last_seen = new_state.last_updated
 
-            old_last_seen = self._entities[entity_id][SEEN]
+            old_last_seen: datetime | None = self._entities[entity_id][SEEN]
             if old_last_seen and last_seen < old_last_seen:
                 self._bad_entity(entity_id, "last_seen went backwards")
                 return
 
             # Try to get GPS and battery data.
             try:
-                gps = (
-                    new_state.attributes[ATTR_LATITUDE],
-                    new_state.attributes[ATTR_LONGITUDE],
+                gps: GPSType | None = cast(
+                    GPSType,
+                    (
+                        new_state.attributes[ATTR_LATITUDE],
+                        new_state.attributes[ATTR_LONGITUDE],
+                    ),
                 )
             except KeyError:
                 gps = None
-            gps_accuracy = new_state.attributes.get(ATTR_GPS_ACCURACY)
-            battery = new_state.attributes.get(
+            gps_accuracy: int | None = new_state.attributes.get(ATTR_GPS_ACCURACY)
+            battery: int | None = new_state.attributes.get(
                 ATTR_BATTERY, new_state.attributes.get(ATTR_BATTERY_LEVEL)
             )
-            charging = new_state.attributes.get(
+            charging: bool | None = new_state.attributes.get(
                 ATTR_BATTERY_CHARGING, new_state.attributes.get(ATTR_CHARGING)
             )
             # Don't use location_name unless we have to.
-            location_name = None
+            location_name: str | None = None
 
             # What type of tracker is this?
             if new_state.domain == BS_DOMAIN:
-                source_type = SOURCE_TYPE_BINARY_SENSOR
+                source_type: str | None = SOURCE_TYPE_BINARY_SENSOR
             else:
                 source_type = new_state.attributes.get(ATTR_SOURCE_TYPE)
 
@@ -477,7 +512,7 @@ class CompositeScanner:
                     return
 
                 new_data = gps, gps_accuracy
-                old_data = self._entities[entity_id][DATA]
+                old_data: tuple[GPSType, int] | None = self._entities[entity_id][DATA]
                 if old_data:
                     if last_seen == old_last_seen and new_data == old_data:
                         return
@@ -487,12 +522,13 @@ class CompositeScanner:
                 if (
                     self._req_movement
                     and old_data
-                    and distance(gps[0], gps[1], old_gps[0], old_gps[1])
+                    and cast(float, distance(gps[0], gps[1], old_gps[0], old_gps[1]))
                     <= gps_accuracy + old_acc
                 ):
                     _LOGGER.debug(
-                        "For {} skipping update from {}: "
-                        "not enough movement".format(self._entity_id, entity_id)
+                        "For %s skipping update from %s: not enough movement",
+                        self._entity_id,
+                        entity_id,
                     )
                     return
 
@@ -505,7 +541,7 @@ class CompositeScanner:
                     else:
                         state = STATE_NOT_HOME
 
-                self._good_entity(entity_id, last_seen, source_type, state)
+                self._good_entity(entity_id, last_seen, cast(str, source_type), state)
 
                 if not self._use_non_gps_data(entity_id, state):
                     return
@@ -517,19 +553,22 @@ class CompositeScanner:
                 # 'zone.home'.
                 cur_state = self._hass.states.get(self._entity_id)
                 try:
-                    cur_lat = cur_state.attributes[ATTR_LATITUDE]
-                    cur_lon = cur_state.attributes[ATTR_LONGITUDE]
-                    cur_acc = cur_state.attributes[ATTR_GPS_ACCURACY]
+                    cur_lat: float = cast(State, cur_state).attributes[ATTR_LATITUDE]
+                    cur_lon: float = cast(State, cur_state).attributes[ATTR_LONGITUDE]
+                    cur_acc: int = cast(State, cur_state).attributes[ATTR_GPS_ACCURACY]
                     cur_gps_is_home = (
-                        run_callback_threadsafe(
-                            self._hass.loop,
-                            async_active_zone,
-                            self._hass,
-                            cur_lat,
-                            cur_lon,
-                            cur_acc,
+                        cast(
+                            State,
+                            run_callback_threadsafe(
+                                self._hass.loop,
+                                async_active_zone,
+                                self._hass,
+                                cur_lat,
+                                cur_lon,
+                                cur_acc,
+                            )
+                            .result(),
                         )
-                        .result()
                         .entity_id
                         == ENTITY_ID_HOME
                     )
@@ -560,7 +599,7 @@ class CompositeScanner:
                 elif state == STATE_HOME and (
                     cur_state is None or cur_state.state != STATE_HOME
                 ):
-                    gps = (self._hass.config.latitude, self._hass.config.longitude)
+                    gps = self._hass.config.latitude, self._hass.config.longitude
                     gps_accuracy = 0
                     source_type = source_type_gps
                 # Otherwise, don't use any GPS data, but set location_name to
@@ -569,32 +608,32 @@ class CompositeScanner:
                     location_name = state
 
             else:
-                self._bad_entity(
-                    entity_id, "unsupported source_type: {}".format(source_type)
-                )
+                self._bad_entity(entity_id, f"unsupported source_type: {source_type}")
                 return
 
             # Is this newer info than last update?
             if self._prev_seen and last_seen <= self._prev_seen:
                 _LOGGER.debug(
-                    "For {} skipping update from {}: "
-                    "last_seen not newer than previous update ({} <= {})".format(
-                        self._entity_id, entity_id, last_seen, self._prev_seen
-                    )
+                    "For %s skipping update from %s: "
+                    "last_seen not newer than previous update (%s) <= (%s)",
+                    self._entity_id,
+                    entity_id,
+                    last_seen,
+                    self._prev_seen,
                 )
                 return
 
             _LOGGER.debug("Updating %s from %s", self._entity_id, entity_id)
 
-            tzone = None
+            tzone: tzinfo | None = None
             if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
-                tzname = None
+                tzname: str | None = None
                 if gps:
                     # timezone_at will return a string or None.
                     tzname = self._tf.timezone_at(lng=gps[1], lat=gps[0])
                     # get_time_zone will return a tzinfo or None.
-                    tzone = dt_util.get_time_zone(tzname)
-                attrs = {ATTR_TIME_ZONE: tzname or STATE_UNKNOWN}
+                    tzone = dt_util.get_time_zone(tzname) if tzname else None
+                attrs: dict[str, Any] = {ATTR_TIME_ZONE: tzname or STATE_UNKNOWN}
             else:
                 attrs = {}
 
