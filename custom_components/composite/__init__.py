@@ -80,23 +80,27 @@ def _defaults(config: dict) -> dict:
 CONFIG_SCHEMA = vol.Schema(
     {
         vol.Optional(DOMAIN, default=dict): vol.All(
-            {
-                vol.Optional(CONF_TZ_FINDER, default=DEFAULT_TZ_FINDER): cv.string,
-                vol.Optional(
-                    CONF_TZ_FINDER_CLASS, default=TZ_FINDER_CLASS_OPTS[0]
-                ): vol.In(TZ_FINDER_CLASS_OPTS),
-                vol.Optional(CONF_DEFAULT_OPTIONS, default=dict): {
-                    vol.Optional(CONF_TIME_AS, default=DEF_TIME_AS): vol.In(
-                        TIME_AS_OPTS
-                    ),
+            vol.Schema(
+                {
+                    vol.Optional(CONF_TZ_FINDER, default=DEFAULT_TZ_FINDER): cv.string,
                     vol.Optional(
-                        CONF_REQ_MOVEMENT, default=DEF_REQ_MOVEMENT
-                    ): cv.boolean,
-                },
-                vol.Optional(CONF_TRACKERS, default=list): vol.All(
-                    cv.ensure_list, [TRACKER], _tracker_ids
-                ),
-            },
+                        CONF_TZ_FINDER_CLASS, default=TZ_FINDER_CLASS_OPTS[0]
+                    ): vol.In(TZ_FINDER_CLASS_OPTS),
+                    vol.Optional(CONF_DEFAULT_OPTIONS, default=dict): vol.Schema(
+                        {
+                            vol.Optional(CONF_TIME_AS, default=DEF_TIME_AS): vol.In(
+                                TIME_AS_OPTS
+                            ),
+                            vol.Optional(
+                                CONF_REQ_MOVEMENT, default=DEF_REQ_MOVEMENT
+                            ): cv.boolean,
+                        }
+                    ),
+                    vol.Optional(CONF_TRACKERS, default=list): vol.All(
+                        cv.ensure_list, [TRACKER], _tracker_ids
+                    ),
+                }
+            ),
             _defaults,
         )
     },

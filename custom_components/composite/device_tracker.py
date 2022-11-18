@@ -15,7 +15,7 @@ from homeassistant.components.device_tracker import (
     ATTR_BATTERY,
     ATTR_SOURCE_TYPE,
     DOMAIN as DT_DOMAIN,
-    PLATFORM_SCHEMA as PLATFORM_SCHEMA_BASE,
+    PLATFORM_SCHEMA as DT_PLATFORM_SCHEMA,
 )
 
 # SourceType was new in 2022.9
@@ -52,6 +52,7 @@ from homeassistant.const import (
     ATTR_BATTERY_CHARGING,
     ATTR_BATTERY_LEVEL,
     ATTR_ENTITY_ID,
+    ATTR_ENTITY_PICTURE,
     ATTR_GPS_ACCURACY,
     ATTR_LATITUDE,
     ATTR_LONGITUDE,
@@ -69,7 +70,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import track_state_change
-from homeassistant.helpers.typing import GPSType
+from homeassistant.helpers.typing import GPSType, UNDEFINED, UndefinedType
 from homeassistant.util.async_ import run_callback_threadsafe
 import homeassistant.util.dt as dt_util
 from homeassistant.util.location import distance
@@ -80,6 +81,7 @@ from .const import (
     CONF_REQ_MOVEMENT,
     CONF_TIME_AS,
     CONF_TRACKERS,
+    CONF_USE_PICTURE,
     DATA_LEGACY_WARNED,
     DATA_TF,
     DEF_TIME_AS,
@@ -102,6 +104,7 @@ INACTIVE = "inactive"
 ACTIVE = "active"
 WARNED = "warned"
 USE_ALL_STATES = "use_all_states"
+USE_PICTURE = "use_picture"
 STATUS = "status"
 SEEN = "seen"
 SOURCE_TYPE = ATTR_SOURCE_TYPE
@@ -121,11 +124,23 @@ SOURCE_TYPE_NON_GPS = (
 def _entities(entities: list[str | dict]) -> list[dict]:
     """Convert entity ID to dict of entity & all_states."""
     result: list[dict] = []
-    for entity in entities:
+    already_using_picture = False
+    for idx, entity in enumerate(entities):
         if isinstance(entity, dict):
+            if entity[CONF_USE_PICTURE]:
+                if already_using_picture:
+                    raise vol.Invalid(
+                        f"{CONF_USE_PICTURE} may only be true for one entity per "
+                        "composite tracker",
+                        path=[idx, CONF_USE_PICTURE],
+                    )
+                else:
+                    already_using_picture = True
             result.append(entity)
         else:
-            result.append({CONF_ENTITY: entity, CONF_ALL_STATES: False})
+            result.append(
+                {CONF_ENTITY: entity, CONF_ALL_STATES: False, CONF_USE_PICTURE: False}
+            )
     return result
 
 
@@ -133,14 +148,17 @@ ENTITIES = vol.All(
     cv.ensure_list,
     [
         vol.Any(
-            {
-                vol.Required(CONF_ENTITY): cv.entity_id,
-                vol.Required(CONF_ALL_STATES): cv.boolean,
-            },
             cv.entity_id,
-            msg="Expected an entity ID",
+            vol.Schema(
+                {
+                    vol.Required(CONF_ENTITY): cv.entity_id,
+                    vol.Optional(CONF_ALL_STATES, default=False): cv.boolean,
+                    vol.Optional(CONF_USE_PICTURE, default=False): cv.boolean,
+                }
+            ),
         )
     ],
+    vol.Length(1),
     _entities,
 )
 COMPOSITE_TRACKER = {
@@ -149,7 +167,7 @@ COMPOSITE_TRACKER = {
     vol.Optional(CONF_TIME_AS): vol.In(TIME_AS_OPTS),
     vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
 }
-PLATFORM_SCHEMA = PLATFORM_SCHEMA_BASE.extend(COMPOSITE_TRACKER)
+PLATFORM_SCHEMA = DT_PLATFORM_SCHEMA.extend(COMPOSITE_TRACKER)
 
 
 def setup_scanner(
@@ -333,6 +351,7 @@ class CompositeDeviceTracker(TrackerEntity):
         battery: int | None = None,
         attributes: dict | None = None,
         source_type: str | None = SOURCE_TYPE_GPS,
+        picture: str | None | UndefinedType = UNDEFINED,
     ) -> None:
         """Process update from CompositeScanner."""
         self._battery_level = battery
@@ -345,6 +364,8 @@ class CompositeDeviceTracker(TrackerEntity):
         else:
             self._latitude = self._longitude = None
         self._attr_extra_state_attributes = attributes
+        if picture is not UNDEFINED:
+            self._attr_entity_picture = picture
         self.hass.add_job(self.async_write_ha_state)
 
 
@@ -367,6 +388,7 @@ class CompositeScanner:
             entity_id: str = entity[CONF_ENTITY]
             self._entities[entity_id] = {
                 USE_ALL_STATES: entity[CONF_ALL_STATES],
+                USE_PICTURE: entity[CONF_USE_PICTURE],
                 STATUS: INACTIVE,
                 SEEN: None,
                 SOURCE_TYPE: None,
@@ -654,14 +676,18 @@ class CompositeScanner:
             )
             if charging is not None:
                 attrs[ATTR_BATTERY_CHARGING] = charging
-            self._see(
-                dev_id=self._dev_id,
-                location_name=location_name,
-                gps=gps,
-                gps_accuracy=gps_accuracy,
-                battery=battery,
-                attributes=attrs,
-                source_type=source_type,
-            )
+
+            kwargs = {
+                "dev_id": self._dev_id,
+                "location_name": location_name,
+                "gps": gps,
+                "gps_accuracy": gps_accuracy,
+                "battery": battery,
+                "attributes": attrs,
+                "source_type": source_type,
+            }
+            if self._entities[entity_id][USE_PICTURE]:
+                kwargs["picture"] = new_state.attributes.get(ATTR_ENTITY_PICTURE)
+            self._see(**kwargs)
 
             self._prev_seen = last_seen

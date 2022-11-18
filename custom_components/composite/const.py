@@ -10,6 +10,7 @@ CONF_ENTITY = "entity"
 CONF_REQ_MOVEMENT = "require_movement"
 CONF_TIME_AS = "time_as"
 CONF_TRACKERS = "trackers"
+CONF_USE_PICTURE = "use_picture"
 
 TZ_UTC = "utc"
 TZ_LOCAL = "local"
