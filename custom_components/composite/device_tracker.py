@@ -82,6 +82,8 @@ from .const import (
     CONF_TRACKERS,
     DATA_LEGACY_WARNED,
     DATA_TF,
+    DEF_TIME_AS,
+    DEF_REQ_MOVEMENT,
     DOMAIN,
     TIME_AS_OPTS,
     TZ_DEVICE_LOCAL,
@@ -144,8 +146,8 @@ ENTITIES = vol.All(
 COMPOSITE_TRACKER = {
     vol.Required(CONF_NAME): cv.slugify,
     vol.Required(CONF_ENTITY_ID): ENTITIES,
-    vol.Optional(CONF_TIME_AS, default=TIME_AS_OPTS[0]): vol.In(TIME_AS_OPTS),
-    vol.Optional(CONF_REQ_MOVEMENT, default=False): cv.boolean,
+    vol.Optional(CONF_TIME_AS): vol.In(TIME_AS_OPTS),
+    vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
 }
 PLATFORM_SCHEMA = PLATFORM_SCHEMA_BASE.extend(COMPOSITE_TRACKER)
 
@@ -373,10 +375,10 @@ class CompositeScanner:
             entity_ids.append(entity_id)
         self._dev_id: str = config[CONF_NAME]
         self._entity_id = f"{DT_DOMAIN}.{self._dev_id}"
-        self._time_as: str = config[CONF_TIME_AS]
+        self._time_as: str = config.get(CONF_TIME_AS, DEF_TIME_AS)
         if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
             self._tf = hass.data[DOMAIN][DATA_TF]
-        self._req_movement: bool = config[CONF_REQ_MOVEMENT]
+        self._req_movement: bool = config.get(CONF_REQ_MOVEMENT, DEF_REQ_MOVEMENT)
         self._lock = threading.Lock()
 
         self._startup(entity_ids)
@@ -464,7 +466,9 @@ class CompositeScanner:
                 last_seen = dt_util.as_utc(last_seen)
             else:
                 try:
-                    last_seen = dt_util.utc_from_timestamp(float(last_seen))  # type: ignore[arg-type]
+                    last_seen = dt_util.utc_from_timestamp(
+                        float(last_seen)
+                    )  # type: ignore[arg-type]
                 except (TypeError, ValueError):
                     last_seen = new_state.last_updated
 
@@ -566,10 +570,8 @@ class CompositeScanner:
                                 cur_lat,
                                 cur_lon,
                                 cur_acc,
-                            )
-                            .result(),
-                        )
-                        .entity_id
+                            ).result(),
+                        ).entity_id
                         == ENTITY_ID_HOME
                     )
                 except (AttributeError, KeyError):

@@ -23,11 +23,16 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 
 from .const import (
+    CONF_DEFAULT_OPTIONS,
+    CONF_REQ_MOVEMENT,
     CONF_TIME_AS,
     CONF_TRACKERS,
     DATA_LEGACY_WARNED,
     DATA_TF,
+    DEF_REQ_MOVEMENT,
+    DEF_TIME_AS,
     DOMAIN,
+    TIME_AS_OPTS,
     TZ_DEVICE_LOCAL,
     TZ_DEVICE_UTC,
 )
@@ -62,18 +67,37 @@ def _tracker_ids(
     return value
 
 
+def _defaults(config: dict) -> dict:
+    """Apply default options to trackers."""
+    def_time_as = config[CONF_DEFAULT_OPTIONS][CONF_TIME_AS]
+    def_req_mv = config[CONF_DEFAULT_OPTIONS][CONF_REQ_MOVEMENT]
+    for tracker in config[CONF_TRACKERS]:
+        tracker[CONF_TIME_AS] = tracker.get(CONF_TIME_AS, def_time_as)
+        tracker[CONF_REQ_MOVEMENT] = tracker.get(CONF_REQ_MOVEMENT, def_req_mv)
+    return config
+
+
 CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Optional(DOMAIN, default=dict): vol.Schema(
+        vol.Optional(DOMAIN, default=dict): vol.All(
             {
                 vol.Optional(CONF_TZ_FINDER, default=DEFAULT_TZ_FINDER): cv.string,
                 vol.Optional(
                     CONF_TZ_FINDER_CLASS, default=TZ_FINDER_CLASS_OPTS[0]
                 ): vol.In(TZ_FINDER_CLASS_OPTS),
+                vol.Optional(CONF_DEFAULT_OPTIONS, default=dict): {
+                    vol.Optional(CONF_TIME_AS, default=DEF_TIME_AS): vol.In(
+                        TIME_AS_OPTS
+                    ),
+                    vol.Optional(
+                        CONF_REQ_MOVEMENT, default=DEF_REQ_MOVEMENT
+                    ): cv.boolean,
+                },
                 vol.Optional(CONF_TRACKERS, default=list): vol.All(
                     cv.ensure_list, [TRACKER], _tracker_ids
                 ),
-            }
+            },
+            _defaults,
         )
     },
     extra=vol.ALLOW_EXTRA,
@@ -151,8 +175,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         for conf in cast(list[dict[str, Any]], config.get(DT_DOMAIN) or [])
         if conf[CONF_PLATFORM] == DOMAIN
     ]
+    # Note that CONF_TIME_AS may not be in legacy configs.
     if any(
-        conf[CONF_TIME_AS] in (TZ_DEVICE_UTC, TZ_DEVICE_LOCAL)
+        conf.get(CONF_TIME_AS, DEF_TIME_AS) in (TZ_DEVICE_UTC, TZ_DEVICE_LOCAL)
         for conf in tracker_configs + legacy_configs
     ):
         pkg: str = config[DOMAIN][CONF_TZ_FINDER]
