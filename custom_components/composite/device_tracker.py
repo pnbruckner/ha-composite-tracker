@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Iterable, MutableMapping
 from datetime import datetime, timedelta, tzinfo
+from functools import partial
 import logging
 import threading
 from typing import Any, cast
@@ -66,7 +67,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State, callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import track_state_change
@@ -384,6 +385,34 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         picture: str | None | UndefinedType = UNDEFINED,
     ) -> None:
         """Process update from CompositeScanner."""
+        self.hass.add_job(
+            partial(
+                self._async_see,
+                dev_id=dev_id,
+                location_name=location_name,
+                gps=gps,
+                gps_accuracy=gps_accuracy,
+                battery=battery,
+                attributes=attributes,
+                source_type=source_type,
+                picture=picture,
+            )
+        )
+
+    @callback
+    def _async_see(
+        self,
+        *,
+        dev_id: str | None = None,
+        location_name: str | None = None,
+        gps: GPSType | None = None,
+        gps_accuracy: int | None = None,
+        battery: int | None = None,
+        attributes: dict | None = None,
+        source_type: str | None = SOURCE_TYPE_GPS,
+        picture: str | None | UndefinedType = UNDEFINED,
+    ) -> None:
+        """Process update from CompositeScanner."""
         self._see_called = True
         self._battery_level = battery
         self._source_type = source_type
@@ -397,7 +426,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._attr_extra_state_attributes = attributes
         if picture is not UNDEFINED:
             self._attr_entity_picture = picture
-        self.hass.add_job(self.async_write_ha_state)
+        self.async_write_ha_state()
 
 
 class CompositeScanner:
