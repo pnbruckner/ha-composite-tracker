@@ -70,6 +70,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import track_state_change
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import GPSType, UNDEFINED, UndefinedType
 from homeassistant.util.async_ import run_callback_threadsafe
 import homeassistant.util.dt as dt_util
@@ -99,6 +100,14 @@ ATTR_CHARGING = "charging"
 ATTR_LAST_SEEN = "last_seen"
 ATTR_LAST_ENTITY_ID = "last_entity_id"
 ATTR_TIME_ZONE = "time_zone"
+
+RESTORE_EXTRA_ATTRS = (
+    ATTR_TIME_ZONE,
+    ATTR_ENTITY_ID,
+    ATTR_LAST_ENTITY_ID,
+    ATTR_LAST_SEEN,
+    ATTR_BATTERY_CHARGING,
+)
 
 INACTIVE = "inactive"
 ACTIVE = "active"
@@ -230,7 +239,7 @@ def _config_from_entry(entry: ConfigEntry) -> dict | None:
     return scanner_config
 
 
-class CompositeDeviceTracker(TrackerEntity):
+class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     """Composite Device Tracker."""
 
     _attr_extra_state_attributes: MutableMapping[
@@ -243,6 +252,7 @@ class CompositeDeviceTracker(TrackerEntity):
     _latitude: float | None = None
     _longitude: float | None = None
     _scanner: CompositeScanner | None = None
+    _see_called = False
 
     def __init__(self, entry: ConfigEntry) -> None:
         """Initialize Composite Device Tracker."""
@@ -297,6 +307,26 @@ class CompositeDeviceTracker(TrackerEntity):
         await super().async_added_to_hass()
         async with self._lock:
             await self._setup_scanner()
+
+            if self._see_called and self._attr_entity_picture:
+                return
+            state = await self.async_get_last_state()
+            if not state:
+                return
+
+            if not self._attr_entity_picture:
+                self._attr_entity_picture = state.attributes.get(ATTR_ENTITY_PICTURE)
+
+            if self._see_called:
+                return
+            self._battery_level = state.attributes.get(ATTR_BATTERY_LEVEL)
+            self._source_type = state.attributes[ATTR_SOURCE_TYPE]
+            self._location_accuracy = state.attributes.get(ATTR_GPS_ACCURACY) or 0
+            self._latitude = state.attributes.get(ATTR_LATITUDE)
+            self._longitude = state.attributes.get(ATTR_LONGITUDE)
+            self._attr_extra_state_attributes = {
+                k: v for k, v in state.attributes.items() if k in RESTORE_EXTRA_ATTRS
+            }
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when entity will be removed from hass."""
@@ -354,6 +384,7 @@ class CompositeDeviceTracker(TrackerEntity):
         picture: str | None | UndefinedType = UNDEFINED,
     ) -> None:
         """Process update from CompositeScanner."""
+        self._see_called = True
         self._battery_level = battery
         self._source_type = source_type
         self._location_accuracy = gps_accuracy or 0
