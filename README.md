@@ -121,9 +121,10 @@ The watched devices, and the composite device, should all have `track` set to `t
 
 Attribute | Description
 -|-
-battery | Battery level (in percent, if available.)
+battery_level | Battery level (in percent, if available.)
 battery_charging | Battery charging status (True/False, if available.)
 entity_id | IDs of entities that have contributed to the state of the composite device.
+entity_picture | Picture to use for composite (if configured and available.)
 gps_accuracy | GPS accuracy radius (in meters, if available.)
 last_entity_id | ID of the last entity to update the composite device.
 last_seen | Date and time when current location information was last updated.
