@@ -42,6 +42,10 @@ has changed and suggest how to edit your configuration accordingly.
 At some point (i.e., in an upcoming 3.0.0 release) legacy support will be removed.
 
 ## Installation
+### Versions
+
+This custom integration supports HomeAssistant versions 2021.12 or newer, using Python 3.9 or newer.
+
 ### Manual
 
 Place a copy of:
