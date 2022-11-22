@@ -149,7 +149,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         if id in legacy_ids:
             conflict_ids.append(id)
         elif id in cfg_entries:
-            hass.config_entries.async_update_entry(cfg_entries[id], **split_conf(conf))
+            hass.config_entries.async_update_entry(
+                cfg_entries[id], **split_conf(conf)  # type: ignore[arg-type]
+            )
         else:
             hass.async_create_task(
                 hass.config_entries.flow.async_init(

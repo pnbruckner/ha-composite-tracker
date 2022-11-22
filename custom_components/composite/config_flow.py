@@ -32,5 +32,6 @@ class CompositeConfigFlow(ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
 
         return self.async_create_entry(
-            title=f"{data[CONF_NAME]} (from configuration)", **split_conf(data)
+            title=f"{data[CONF_NAME]} (from configuration)",
+            **split_conf(data),  # type: ignore[arg-type]
         )

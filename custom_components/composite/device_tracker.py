@@ -36,11 +36,11 @@ except ImportError:
         SOURCE_TYPE_ROUTER,
     )
 
-    source_type_type = str
-    source_type_bluetooth = SOURCE_TYPE_BLUETOOTH
-    source_type_bluetooth_le = SOURCE_TYPE_BLUETOOTH_LE
-    source_type_gps = SOURCE_TYPE_GPS
-    source_type_router = SOURCE_TYPE_ROUTER
+    source_type_type = str  # type: ignore[assignment, misc]
+    source_type_bluetooth = SOURCE_TYPE_BLUETOOTH  # type: ignore[assignment]
+    source_type_bluetooth_le = SOURCE_TYPE_BLUETOOTH_LE  # type: ignore[assignment]
+    source_type_gps = SOURCE_TYPE_GPS  # type: ignore[assignment]
+    source_type_router = SOURCE_TYPE_ROUTER  # type: ignore[assignment]
 
 from homeassistant.components.device_tracker.config_entry import TrackerEntity
 from homeassistant.components.persistent_notification import (
@@ -549,8 +549,8 @@ class CompositeScanner:
             else:
                 try:
                     last_seen = dt_util.utc_from_timestamp(
-                        float(last_seen)
-                    )  # type: ignore[arg-type]
+                        float(last_seen)  # type: ignore[arg-type]
+                    )
                 except (TypeError, ValueError):
                     last_seen = new_state.last_updated
 
@@ -627,7 +627,7 @@ class CompositeScanner:
                     else:
                         state = STATE_NOT_HOME
 
-                self._good_entity(entity_id, last_seen, cast(str, source_type), state)
+                self._good_entity(entity_id, last_seen, source_type, state)
 
                 if not self._use_non_gps_data(entity_id, state):
                     return
