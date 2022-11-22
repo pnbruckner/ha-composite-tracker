@@ -381,7 +381,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         gps_accuracy: int | None = None,
         battery: int | None = None,
         attributes: dict | None = None,
-        source_type: str | None = SOURCE_TYPE_GPS,
+        source_type: str | None = source_type_gps,
         picture: str | None | UndefinedType = UNDEFINED,
     ) -> None:
         """Process update from CompositeScanner."""
@@ -409,7 +409,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         gps_accuracy: int | None = None,
         battery: int | None = None,
         attributes: dict | None = None,
-        source_type: str | None = SOURCE_TYPE_GPS,
+        source_type: str | None = source_type_gps,
         picture: str | None | UndefinedType = UNDEFINED,
     ) -> None:
         """Process update from CompositeScanner."""
