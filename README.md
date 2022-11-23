@@ -1,8 +1,8 @@
 # Composite Device Tracker
 
-This platform creates a composite device tracker from one or more other device trackers and/or binary sensors. It will update whenever one of the watched entities updates, taking the last_seen/last_updated (and possibly GPS and battery) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" device tracker's update irregularly.
+This integration creates a composite `device_tracker` entity from one or more other device trackers and/or binary sensors. It will update whenever one of the watched entities updates, taking the `last_seen`/`last_updated` (and possibly GPS and battery) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" entities update irregularly.
 
-Currently device_tracker's with a source_type of bluetooth, bluetooth_le, gps or router are supported, as well as binary_sensor's.
+Currently `device_tracker` entities with a `source_type` of `bluetooth`, `bluetooth_le`, `gps` or `router` are supported, as well as `binary_sensor` entities.
 
 Follow the installation instructions below.
 Then add the desired configuration. Here is an example of a typical configuration:
