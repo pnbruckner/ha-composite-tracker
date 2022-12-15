@@ -67,6 +67,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
+from homeassistant.const import LENGTH_KILOMETERS, LENGTH_METERS, LENGTH_MILES
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State, callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -74,10 +75,12 @@ from homeassistant.helpers.event import track_state_change
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import GPSType, UNDEFINED, UndefinedType
 from homeassistant.util.async_ import run_callback_threadsafe
+from homeassistant.util.distance import convert
 import homeassistant.util.dt as dt_util
 from homeassistant.util.location import distance
 
 from .const import (
+    ATTR_SPEED,
     CONF_ALL_STATES,
     CONF_ENTITY,
     CONF_REQ_MOVEMENT,
@@ -433,6 +436,7 @@ class CompositeScanner:
     """Composite device scanner."""
 
     _prev_seen: datetime | None = None
+    _prev_gps: GPSType | None = None
     _remove: CALLBACK_TYPE | None = None
 
     def __init__(
@@ -736,6 +740,13 @@ class CompositeScanner:
             )
             if charging is not None:
                 attrs[ATTR_BATTERY_CHARGING] = charging
+            if self._prev_seen and self._prev_gps and gps:
+                dtim = last_seen - self._prev_seen
+                dist = distance(self._prev_gps[0], self._prev_gps[1], gps[0], gps[1])
+                # TODO: Use HASS unit configuration
+                dist = convert(dist, LENGTH_METERS, LENGTH_MILES)
+                speed = dist / (dtim.total_seconds() / (60 * 60))
+                attrs[ATTR_SPEED] = speed
 
             kwargs = {
                 "dev_id": self._dev_id,
@@ -751,3 +762,4 @@ class CompositeScanner:
             self._see(**kwargs)
 
             self._prev_seen = last_seen
+            self._prev_gps = gps
