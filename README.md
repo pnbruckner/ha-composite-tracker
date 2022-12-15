@@ -4,8 +4,8 @@ This integration creates a composite `device_tracker` entity from one or more ot
 
 Currently `device_tracker` entities with a `source_type` of `bluetooth`, `bluetooth_le`, `gps` or `router` are supported, as well as `binary_sensor` entities.
 
-Follow the installation instructions below.
-Then add the desired configuration. Here is an example of a typical configuration:
+Follow the [installation](#installation) instructions below.
+Then, after restarting Home Assistant, add the desired configuration and restart Home Assistant once more. Here is an example of a typical configuration:
 
 ```yaml
 composite:
@@ -42,9 +42,18 @@ has changed and suggest how to edit your configuration accordingly.
 At some point (i.e., in an upcoming 3.0.0 release) legacy support will be removed.
 
 ## Installation
-### Versions
+### With HACS
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 
-This custom integration supports HomeAssistant versions 2021.12 or newer, using Python 3.9 or newer.
+You can use HACS to manage the installation and provide update notifications.
+
+1. Add this repo as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/):
+
+```text
+https://github.com/pnbruckner/ha-composite-tracker
+```
+
+2. Install the integration using the appropriate button on the HACS Integrations page. Search for "composite".
 
 ### Manual
 
@@ -60,8 +69,9 @@ where `<config>` is your Home Assistant configuration directory.
 
 >__NOTE__: Do not download the file by using the link above directly. Rather, click on it, then on the page that comes up use the `Raw` button.
 
-### With HACS
-You can use [HACS](https://hacs.xyz/) to manage installation and updates by adding this repo as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/).
+### Versions
+
+This custom integration supports HomeAssistant versions 2021.12 or newer, using Python 3.9 or newer.
 
 ### numpy on Raspberry Pi
 
