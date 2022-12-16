@@ -4,8 +4,6 @@ DOMAIN = "composite"
 DATA_LEGACY_WARNED = "legacy_warned"
 DATA_TF = "tf"
 
-ATTR_SPEED = "speed"
-
 CONF_ALL_STATES = "all_states"
 CONF_DEFAULT_OPTIONS = "default_options"
 CONF_ENTITY = "entity"
