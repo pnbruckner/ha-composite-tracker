@@ -457,7 +457,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         else:
             speed = None
         _LOGGER.debug("%s: Sending speed: %s m/s", self.name, speed)
-        async_dispatcher_send(self.hass, SIG_COMPOSITE_SPEED, speed)
+        async_dispatcher_send(self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed)
 
 
 class CompositeScanner:

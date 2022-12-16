@@ -42,7 +42,7 @@ async def async_setup_entry(
         native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
         state_class=SensorStateClass.MEASUREMENT,
         id=cast(str, entry.data[CONF_ID]) + "_speed",
-        signal=SIG_COMPOSITE_SPEED,
+        signal=f"{SIG_COMPOSITE_SPEED}-{entry.data[CONF_ID]}",
     )
     async_add_entities([CompositeSensor(hass, entity_description)])
 
