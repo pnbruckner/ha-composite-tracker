@@ -331,7 +331,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self._attr_extra_state_attributes = {
                 k: v for k, v in state.attributes.items() if k in RESTORE_EXTRA_ATTRS
             }
-            with suppress(IndexError):
+            with suppress(KeyError):
                 self._attr_extra_state_attributes[
                     ATTR_LAST_SEEN
                 ] = dt_util.parse_datetime(

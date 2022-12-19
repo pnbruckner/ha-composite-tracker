@@ -1,7 +1,8 @@
 """Composite Sensor."""
 from __future__ import annotations
-from dataclasses import dataclass
 
+from dataclasses import dataclass
+import logging
 from typing import cast
 
 from homeassistant.components.sensor import (
@@ -11,13 +12,35 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
+
+# SensorDeviceClass.SPEED was new in 2022.10
+try:
+    from homeassistant.components.sensor import SensorDeviceClass
+
+    sensor_device_class_speed = SensorDeviceClass.SPEED
+except AttributeError:
+    sensor_device_class_speed = None
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ID, CONF_NAME, UnitOfSpeed
+from homeassistant.const import CONF_ID, CONF_NAME
+
+# UnitOfSpeed was new in 2022.11
+try:
+    from homeassistant.const import UnitOfSpeed
+
+    meters_per_second = UnitOfSpeed.METERS_PER_SECOND
+except ImportError:
+    from homeassistant.const import SPEED_METERS_PER_SECOND
+
+    meters_per_second = SPEED_METERS_PER_SECOND
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import SIG_COMPOSITE_SPEED
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -36,10 +59,10 @@ async def async_setup_entry(
     """Set up the sensor platform."""
     entity_description = CompositeSensorEntityDescription(
         "speed",
-        device_class=SensorDeviceClass.SPEED,
+        device_class=sensor_device_class_speed,
         icon="mdi:car-speed-limiter",
         name=cast(str, entry.data[CONF_NAME]) + " Speed",
-        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+        native_unit_of_measurement=meters_per_second,
         state_class=SensorStateClass.MEASUREMENT,
         id=cast(str, entry.data[CONF_ID]) + "_speed",
         signal=f"{SIG_COMPOSITE_SPEED}-{entry.data[CONF_ID]}",
