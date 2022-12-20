@@ -118,6 +118,6 @@ class CompositeSensor(SensorEntity):
     async def _update(self, value: float) -> None:
         """Update sensor with new value."""
         if value and self._to_unit:
-            value = f"{convert(value, LENGTH_METERS, self._to_unit) / (60 * 60):0.1f}"
+            value = f"{convert(value, LENGTH_METERS, self._to_unit) * (60 * 60):0.1f}"
         self._attr_native_value = value
         self.async_write_ha_state()
