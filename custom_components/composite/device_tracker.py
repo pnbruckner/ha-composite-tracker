@@ -91,6 +91,7 @@ from .const import (
     DEF_TIME_AS,
     DEF_REQ_MOVEMENT,
     DOMAIN,
+    MIN_SPEED_SECONDS,
     SIG_COMPOSITE_SPEED,
     TIME_AS_OPTS,
     TZ_DEVICE_LOCAL,
@@ -450,9 +451,14 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self.async_write_ha_state()
 
         if prev_seen and prev_lat and prev_lon and gps:
-            meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
             last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
             seconds = (last_seen - cast(datetime, prev_seen)).total_seconds()
+            if seconds < MIN_SPEED_SECONDS:
+                _LOGGER.debug(
+                    "%s: Not sending speed (time delta %0.1f < %0.1f", seconds, MIN_SPEED_SECONDS
+                )
+                return
+            meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
             speed = round(meters / seconds, 1)
         else:
             speed = None
