@@ -467,12 +467,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
             try:
                 speed = round(meters / seconds, 1)
+            except TypeError:
+                _LOGGER.error("%s: distance() returned None", self.name)
+            else:
                 if speed > MIN_ANGLE_SPEED:
                     angle = round(degrees(atan2(lon - prev_lon, lat - prev_lat)))
                     if angle < 0:
                         angle += 360
-            except TypeError:
-                _LOGGER.error("%s: distance() returned None", self.name)
         _LOGGER.debug("%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle)
         async_dispatcher_send(
             self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
