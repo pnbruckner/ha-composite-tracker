@@ -127,7 +127,7 @@ class CompositeSensor(SensorEntity):
             """Determine compass direction."""
             if angle is None:
                 return None
-            ("W", "SW", "S", "SE", "E", "NE", "N", "NW", "W")[
+            return ("W", "SW", "S", "SE", "E", "NE", "N", "NW", "W")[
                 int((angle + 180 + 360 / 16) // (360 / 8))
             ]
 
