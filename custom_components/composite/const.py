@@ -25,3 +25,7 @@ DEF_TIME_AS = TIME_AS_OPTS[0]
 DEF_REQ_MOVEMENT = False
 
 MIN_SPEED_SECONDS = 1
+MIN_ANGLE_SPEED = 1  # meters / second
+
+ATTR_ANGLE = "angle"
+ATTR_DIRECTION = "direction"

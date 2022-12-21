@@ -7,6 +7,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta, tzinfo
 from functools import partial
 import logging
+from math import atan2, degrees
 import threading
 from typing import Any, cast
 
@@ -91,6 +92,7 @@ from .const import (
     DEF_TIME_AS,
     DEF_REQ_MOVEMENT,
     DOMAIN,
+    MIN_ANGLE_SPEED,
     MIN_SPEED_SECONDS,
     SIG_COMPOSITE_SPEED,
     TIME_AS_OPTS,
@@ -451,21 +453,28 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self.async_write_ha_state()
 
         speed = None
+        angle = None
         if prev_seen and prev_lat and prev_lon and gps:
             last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
             seconds = (last_seen - cast(datetime, prev_seen)).total_seconds()
             if seconds < MIN_SPEED_SECONDS:
                 _LOGGER.debug(
-                    "%s: Not sending speed (time delta %0.1f < %0.1f", seconds, MIN_SPEED_SECONDS
+                    "%s: Not sending speed & angle (time delta %0.1f < %0.1f",
+                    seconds,
+                    MIN_SPEED_SECONDS,
                 )
                 return
             meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
             try:
                 speed = round(meters / seconds, 1)
+                if speed > MIN_ANGLE_SPEED:
+                    angle = round(degrees(atan2(lat - prev_lat, lon - prev_lon)))
             except TypeError:
                 _LOGGER.error("%s: distance() returned None", self.name)
-        _LOGGER.debug("%s: Sending speed: %s m/s", self.name, speed)
-        async_dispatcher_send(self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed)
+        _LOGGER.debug("%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle)
+        async_dispatcher_send(
+            self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
+        )
 
 
 class CompositeScanner:
