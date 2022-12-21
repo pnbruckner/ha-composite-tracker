@@ -81,6 +81,7 @@ async def async_setup_entry(
 class CompositeSensor(SensorEntity):
     """Composite Sensor Entity."""
 
+    _attr_should_poll = False
     _to_unit: str | None = None
 
     def __init__(
@@ -120,4 +121,5 @@ class CompositeSensor(SensorEntity):
         if value and self._to_unit:
             value = f"{convert(value, LENGTH_METERS, self._to_unit) * (60 * 60):0.1f}"
         self._attr_native_value = value
+        self.entity_description.force_update = bool(value)
         self.async_write_ha_state()
