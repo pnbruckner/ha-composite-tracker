@@ -42,7 +42,7 @@ from .device_tracker import COMPOSITE_TRACKER
 CONF_TZ_FINDER = "tz_finder"
 DEFAULT_TZ_FINDER = "timezonefinderL==4.0.2"
 CONF_TZ_FINDER_CLASS = "tz_finder_class"
-PLATFORMS = [Platform.DEVICE_TRACKER]
+PLATFORMS = [Platform.DEVICE_TRACKER, Platform.SENSOR]
 TZ_FINDER_CLASS_OPTS = ["TimezoneFinder", "TimezoneFinderL"]
 TRACKER = COMPOSITE_TRACKER.copy()
 TRACKER.update({vol.Required(CONF_NAME): cv.string, vol.Optional(CONF_ID): cv.slugify})

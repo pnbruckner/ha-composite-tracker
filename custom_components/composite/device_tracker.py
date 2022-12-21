@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Iterable, MutableMapping
+from contextlib import suppress
 from datetime import datetime, timedelta, tzinfo
 from functools import partial
 import logging
@@ -69,6 +70,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State, callback
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import track_state_change
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -89,6 +91,8 @@ from .const import (
     DEF_TIME_AS,
     DEF_REQ_MOVEMENT,
     DOMAIN,
+    MIN_SPEED_SECONDS,
+    SIG_COMPOSITE_SPEED,
     TIME_AS_OPTS,
     TZ_DEVICE_LOCAL,
     TZ_DEVICE_UTC,
@@ -328,6 +332,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self._attr_extra_state_attributes = {
                 k: v for k, v in state.attributes.items() if k in RESTORE_EXTRA_ATTRS
             }
+            with suppress(KeyError):
+                self._attr_extra_state_attributes[
+                    ATTR_LAST_SEEN
+                ] = dt_util.parse_datetime(
+                    self._attr_extra_state_attributes[ATTR_LAST_SEEN]
+                )
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when entity will be removed from hass."""
@@ -413,20 +423,49 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         picture: str | None | UndefinedType = UNDEFINED,
     ) -> None:
         """Process update from CompositeScanner."""
-        self._see_called = True
+        # Save previously "seen" values before updating for speed calculations below.
+        if self._see_called:
+            prev_seen = (self._attr_extra_state_attributes or {}).get(ATTR_LAST_SEEN)
+            prev_lat = self.latitude
+            prev_lon = self.longitude
+        else:
+            # Don't use restored attributes.
+            prev_seen = prev_lat = prev_lon = None
+            self._see_called = True
+
         self._battery_level = battery
         self._source_type = source_type
         self._location_accuracy = gps_accuracy or 0
         self._location_name = location_name
         if gps:
-            self._latitude = gps[0]
-            self._longitude = gps[1]
+            lat, lon = gps
         else:
-            self._latitude = self._longitude = None
+            lat = lon = None
+        self._latitude = lat
+        self._longitude = lon
+
         self._attr_extra_state_attributes = attributes
         if picture is not UNDEFINED:
             self._attr_entity_picture = picture
+
         self.async_write_ha_state()
+
+        speed = None
+        if prev_seen and prev_lat and prev_lon and gps:
+            last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
+            seconds = (last_seen - cast(datetime, prev_seen)).total_seconds()
+            if seconds < MIN_SPEED_SECONDS:
+                _LOGGER.debug(
+                    "%s: Not sending speed (time delta %0.1f < %0.1f", seconds, MIN_SPEED_SECONDS
+                )
+                return
+            meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
+            try:
+                speed = round(meters / seconds, 1)
+            except TypeError:
+                _LOGGER.error("%s: distance() returned None", self.name)
+        _LOGGER.debug("%s: Sending speed: %s m/s", self.name, speed)
+        async_dispatcher_send(self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed)
 
 
 class CompositeScanner:

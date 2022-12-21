@@ -4,4 +4,6 @@ This integration creates a composite `device_tracker` entity from one or more ot
 
 Currently `device_tracker` entities with a `source_type` of `bluetooth`, `bluetooth_le`, `gps` or `router` are supported, as well as `binary_sensor` entities.
 
+It will also create a `sensor` entity that indicates the speed of the device.
+
 For now configuration is done strictly in YAML and will be imported into the Integrations and Entities pages in the UI.

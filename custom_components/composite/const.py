@@ -4,6 +4,8 @@ DOMAIN = "composite"
 DATA_LEGACY_WARNED = "legacy_warned"
 DATA_TF = "tf"
 
+SIG_COMPOSITE_SPEED = "composite_speed"
+
 CONF_ALL_STATES = "all_states"
 CONF_DEFAULT_OPTIONS = "default_options"
 CONF_ENTITY = "entity"
@@ -21,3 +23,5 @@ TIME_AS_OPTS = [TZ_UTC, TZ_LOCAL, TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]
 
 DEF_TIME_AS = TIME_AS_OPTS[0]
 DEF_REQ_MOVEMENT = False
+
+MIN_SPEED_SECONDS = 1
