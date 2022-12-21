@@ -450,6 +450,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
+        speed = None
         if prev_seen and prev_lat and prev_lon and gps:
             last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
             seconds = (last_seen - cast(datetime, prev_seen)).total_seconds()
@@ -459,9 +460,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 )
                 return
             meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
-            speed = round(meters / seconds, 1)
-        else:
-            speed = None
+            try:
+                speed = round(meters / seconds, 1)
+            except TypeError:
+                _LOGGER.error("%s: distance() returned None", self.name)
         _LOGGER.debug("%s: Sending speed: %s m/s", self.name, speed)
         async_dispatcher_send(self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed)
 
