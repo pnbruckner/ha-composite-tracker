@@ -4,6 +4,8 @@ This integration creates a composite `device_tracker` entity from one or more ot
 
 Currently `device_tracker` entities with a `source_type` of `bluetooth`, `bluetooth_le`, `gps` or `router` are supported, as well as `binary_sensor` entities.
 
+It will also create a `sensor` entity that indicates the speed of the device.
+
 Follow the [installation](#installation) instructions below.
 Then, after restarting Home Assistant, add the desired configuration and restart Home Assistant once more. Here is an example of a typical configuration:
 
@@ -13,7 +15,8 @@ composite:
     - name: Me
       time_as: device_or_local
       entity_id:
-        - device_tracker.platform1_me
+        - entity: device_tracker.platform1_me
+          use_picture: true
         - device_tracker.platform2_me
         - binary_sensor.i_am_home
 ```
@@ -105,7 +108,7 @@ NOTE: Once legacy support is removed, this variable, with at least one entry, wi
 
 - **entity_id**: Specifies the watched entities. Can be an entity ID, a dictionary (see [Entity Dictionary](#entity-dictionary)), or a list containing any combination of these.
 - **name**: Friendly name of composite device.
-- **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in an entity ID of `device_tracker.my_name`.
+- **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in a tracker entity ID of `device_tracker.my_name`. The speed sensor's object ID will be the same as for the device tracker, but with a suffix of "`_speed`" added (e.g., `sensor.my_name_speed`.)
 - **require_movement** (*Optional*): `true` or `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
 - **time_as** (*Optional*): One of `utc`, `local`, `device_or_utc` or `device_or_local`. `utc` shows time attributes in UTC. `local` shows time attributes per HA's `time_zone` configuration. `device_or_utc` and `device_or_local` attempt to determine the time zone in which the device is located based on its GPS coordinates. The name of the time zone (or `unknown`) will be shown in a new attribute named `time_zone`. If the time zone can be determined, then time attributes will be shown in that time zone. If the time zone cannot be determined, then time attributes will be shown in UTC if `device_or_utc` is selected, or in HA's local time zone if `device_or_local` is selected.
 
@@ -131,7 +134,7 @@ NOTE: This only applies to "legacy" tracker devices.
 
 The watched devices, and the composite device, should all have `track` set to `true`.
 
-## Attributes
+## `device_tracker` Attributes
 
 Attribute | Description
 -|-
