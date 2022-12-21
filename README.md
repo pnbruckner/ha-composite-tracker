@@ -150,6 +150,13 @@ longitude | Longitude of current location (if available.)
 source_type | Source of current location information: `binary_sensor`, `bluetooth`, `bluetooth_le`, `gps` or `router`.
 time_zone | The name of the time zone in which the device is located, or `unknown` if it cannot be determined. Only exists if `device_or_utc` or `device_or_local` is chosen for `time_as`.
 
+## Speed `sensor` Attributes
+
+Attribute | Description
+-|-
+angle | Angle of movement direction (in degrees, if moving.)
+direction | Compass heading of movement direction (if moving.)
+
 ## Examples
 ### Example Full Config
 ```yaml
