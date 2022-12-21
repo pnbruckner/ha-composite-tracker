@@ -468,7 +468,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             try:
                 speed = round(meters / seconds, 1)
                 if speed > MIN_ANGLE_SPEED:
-                    angle = round(degrees(atan2(lat - prev_lat, lon - prev_lon)))
+                    angle = round(degrees(atan2(lon - prev_lon, lat - prev_lat)))
+                    if angle < 0:
+                        angle += 360
             except TypeError:
                 _LOGGER.error("%s: distance() returned None", self.name)
         _LOGGER.debug("%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle)
