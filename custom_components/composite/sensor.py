@@ -110,6 +110,10 @@ class CompositeSensor(SensorEntity):
             )
 
         self._attr_unique_id = entity_description.id
+        self._attr_extra_state_attributes = {
+            ATTR_ANGLE: None,
+            ATTR_DIRECTION: None,
+        }
         self.entity_id = f"{S_DOMAIN}.{entity_description.id}"
 
         self.async_on_remove(
