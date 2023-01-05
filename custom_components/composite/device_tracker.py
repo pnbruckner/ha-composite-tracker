@@ -466,7 +466,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             seconds = (last_seen - prev_seen).total_seconds()
             min_seconds = MIN_SPEED_SECONDS
             if last_ent != prev_ent:
-                min_seconds *= 5
+                min_seconds *= 3
             if seconds < min_seconds:
                 _LOGGER.debug(
                     "%s: Not sending speed & angle (time delta %0.1f < %0.1f",
