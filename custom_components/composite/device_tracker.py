@@ -7,6 +7,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta, tzinfo
 from functools import partial
 import logging
+from math import atan2, degrees
 import threading
 from typing import Any, cast
 
@@ -91,6 +92,7 @@ from .const import (
     DEF_TIME_AS,
     DEF_REQ_MOVEMENT,
     DOMAIN,
+    MIN_ANGLE_SPEED,
     MIN_SPEED_SECONDS,
     SIG_COMPOSITE_SPEED,
     TIME_AS_OPTS,
@@ -425,12 +427,17 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         """Process update from CompositeScanner."""
         # Save previously "seen" values before updating for speed calculations below.
         if self._see_called:
-            prev_seen = (self._attr_extra_state_attributes or {}).get(ATTR_LAST_SEEN)
+            prev_ent: str | None = self._attr_extra_state_attributes[
+                ATTR_LAST_ENTITY_ID
+            ]
+            prev_seen: datetime | None = self._attr_extra_state_attributes[
+                ATTR_LAST_SEEN
+            ]
             prev_lat = self.latitude
             prev_lon = self.longitude
         else:
             # Don't use restored attributes.
-            prev_seen = prev_lat = prev_lon = None
+            prev_ent = prev_seen = prev_lat = prev_lon = None
             self._see_called = True
 
         self._battery_level = battery
@@ -451,12 +458,20 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self.async_write_ha_state()
 
         speed = None
-        if prev_seen and prev_lat and prev_lon and gps:
+        angle = None
+        if prev_ent and prev_seen and prev_lat and prev_lon and gps:
+            assert attributes
+            last_ent = cast(str, attributes[ATTR_LAST_ENTITY_ID])
             last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
-            seconds = (last_seen - cast(datetime, prev_seen)).total_seconds()
-            if seconds < MIN_SPEED_SECONDS:
+            seconds = (last_seen - prev_seen).total_seconds()
+            min_seconds = MIN_SPEED_SECONDS
+            if last_ent != prev_ent:
+                min_seconds *= 3
+            if seconds < min_seconds:
                 _LOGGER.debug(
-                    "%s: Not sending speed (time delta %0.1f < %0.1f", seconds, MIN_SPEED_SECONDS
+                    "%s: Not sending speed & angle (time delta %0.1f < %0.1f",
+                    seconds,
+                    min_seconds,
                 )
                 return
             meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
@@ -464,8 +479,15 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 speed = round(meters / seconds, 1)
             except TypeError:
                 _LOGGER.error("%s: distance() returned None", self.name)
-        _LOGGER.debug("%s: Sending speed: %s m/s", self.name, speed)
-        async_dispatcher_send(self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed)
+            else:
+                if speed > MIN_ANGLE_SPEED:
+                    angle = round(degrees(atan2(lon - prev_lon, lat - prev_lat)))
+                    if angle < 0:
+                        angle += 360
+        _LOGGER.debug("%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle)
+        async_dispatcher_send(
+            self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
+        )
 
 
 class CompositeScanner:

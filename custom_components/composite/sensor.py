@@ -47,7 +47,7 @@ from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import SIG_COMPOSITE_SPEED
+from .const import ATTR_ANGLE, ATTR_DIRECTION, SIG_COMPOSITE_SPEED
 
 
 @dataclass
@@ -110,16 +110,33 @@ class CompositeSensor(SensorEntity):
             )
 
         self._attr_unique_id = entity_description.id
+        self._attr_extra_state_attributes = {
+            ATTR_ANGLE: None,
+            ATTR_DIRECTION: None,
+        }
         self.entity_id = f"{S_DOMAIN}.{entity_description.id}"
 
         self.async_on_remove(
             async_dispatcher_connect(hass, entity_description.signal, self._update)
         )
 
-    async def _update(self, value: float) -> None:
+    async def _update(self, value: float | None, angle: int | None) -> None:
         """Update sensor with new value."""
+
+        def direction(angle: int | None) -> str | None:
+            """Determine compass direction."""
+            if angle is None:
+                return None
+            return ("N", "NE", "E", "SE", "S", "SW", "W", "NW", "N")[
+                int((angle + 360 / 16) // (360 / 8))
+            ]
+
         if value and self._to_unit:
             value = f"{convert(value, LENGTH_METERS, self._to_unit) * (60 * 60):0.1f}"
         self._attr_native_value = value
         self.entity_description.force_update = bool(value)
+        self._attr_extra_state_attributes = {
+            ATTR_ANGLE: angle,
+            ATTR_DIRECTION: direction(angle),
+        }
         self.async_write_ha_state()
