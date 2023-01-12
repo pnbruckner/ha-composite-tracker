@@ -470,6 +470,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             if seconds < min_seconds:
                 _LOGGER.debug(
                     "%s: Not sending speed & angle (time delta %0.1f < %0.1f",
+                    self.name,
                     seconds,
                     min_seconds,
                 )
