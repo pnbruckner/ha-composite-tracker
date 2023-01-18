@@ -105,6 +105,7 @@ _LOGGER = logging.getLogger(__name__)
 
 ATTR_CHARGING = "charging"
 ATTR_LAST_SEEN = "last_seen"
+ATTR_LAST_TIMESTAMP = "last_timestamp"
 ATTR_LAST_ENTITY_ID = "last_entity_id"
 ATTR_TIME_ZONE = "time_zone"
 
@@ -426,13 +427,17 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     ) -> None:
         """Process update from CompositeScanner."""
         # Save previously "seen" values before updating for speed calculations below.
+        prev_ent: str | None
+        prev_seen: datetime | None
+        prev_lat: float | None
+        prev_lon: float | None
         if self._see_called:
-            prev_ent: str | None = self._attr_extra_state_attributes[
-                ATTR_LAST_ENTITY_ID
-            ]
-            prev_seen: datetime | None = self._attr_extra_state_attributes[
-                ATTR_LAST_SEEN
-            ]
+            prev_ent = cast(
+                MutableMapping[str, Any], self._attr_extra_state_attributes
+            )[ATTR_LAST_ENTITY_ID]
+            prev_seen = cast(
+                MutableMapping[str, Any], self._attr_extra_state_attributes
+            )[ATTR_LAST_SEEN]
             prev_lat = self.latitude
             prev_lon = self.longitude
         else:
@@ -444,6 +449,8 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._source_type = source_type
         self._location_accuracy = gps_accuracy or 0
         self._location_name = location_name
+        lat: float | None
+        lon: float | None
         if gps:
             lat, lon = gps
         else:
@@ -460,6 +467,8 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         speed = None
         angle = None
         if prev_ent and prev_seen and prev_lat and prev_lon and gps:
+            assert lat
+            assert lon
             assert attributes
             last_ent = cast(str, attributes[ATTR_LAST_ENTITY_ID])
             last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
@@ -600,12 +609,14 @@ class CompositeScanner:
             return
 
         with self._lock:
-            # Get time device was last seen, which is the entity's last_seen
-            # attribute, or if that doesn't exist, then last_updated from the
-            # new state object. Make sure last_seen is timezone aware in UTC.
+            # Get time device was last seen, which is the entity's last_seen or
+            # last_timestamp attribute, or if that doesn't exist, then last_updated from
+            # the new state object. Make sure last_seen is timezone aware in UTC.
             # Note that dt_util.as_utc assumes naive datetime is in local
             # timezone.
-            last_seen: datetime | str | None = new_state.attributes.get(ATTR_LAST_SEEN)
+            last_seen: datetime | str | None = new_state.attributes.get(
+                ATTR_LAST_SEEN
+            ) or new_state.attributes.get(ATTR_LAST_TIMESTAMP)
             if isinstance(last_seen, datetime):
                 last_seen = dt_util.as_utc(last_seen)
             else:
