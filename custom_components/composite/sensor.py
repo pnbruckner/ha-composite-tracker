@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
 )
 
 # SensorDeviceClass.SPEED was new in 2022.10
+speed_sensor_device_class: str | None
 try:
     from homeassistant.components.sensor import SensorDeviceClass
 
@@ -34,6 +35,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ID, CONF_NAME
 
 # UnitOfSpeed was new in 2022.11
+meters_per_second: str
 try:
     from homeassistant.const import UnitOfSpeed
 
@@ -54,8 +56,8 @@ from .const import ATTR_ANGLE, ATTR_DIRECTION, SIG_COMPOSITE_SPEED
 class CompositeSensorEntityDescription(SensorEntityDescription):
     """Composite sensor entity description."""
 
-    id: str = None
-    signal: str = None
+    id: str = None  # type: ignore[assignment]
+    signal: str = None  # type: ignore[assignment]
 
 
 async def async_setup_entry(
@@ -73,7 +75,7 @@ async def async_setup_entry(
         signal=f"{SIG_COMPOSITE_SPEED}-{entry.data[CONF_ID]}",
     )
     if speed_sensor_device_class:
-        entity_description.device_class = speed_sensor_device_class
+        entity_description.device_class = speed_sensor_device_class  # type: ignore[assignment]
         entity_description.native_unit_of_measurement = meters_per_second
     async_add_entities([CompositeSensor(hass, entity_description)])
 
@@ -93,7 +95,7 @@ class CompositeSensor(SensorEntity):
         self.entity_description = entity_description
 
         @callback
-        def set_unit_of_measurement(event: Event = None) -> None:
+        def set_unit_of_measurement(event: Event | None = None) -> None:
             """Set unit of measurement based on HA config."""
             if hass.config.units is METRIC_SYSTEM:
                 uom = SPEED_KILOMETERS_PER_HOUR
@@ -132,7 +134,7 @@ class CompositeSensor(SensorEntity):
             ]
 
         if value and self._to_unit:
-            value = f"{convert(value, LENGTH_METERS, self._to_unit) * (60 * 60):0.1f}"
+            value = f"{convert(value, LENGTH_METERS, self._to_unit) * (60 * 60):0.1f}"  # type: ignore[assignment]
         self._attr_native_value = value
         self.entity_description.force_update = bool(value)
         self._attr_extra_state_attributes = {

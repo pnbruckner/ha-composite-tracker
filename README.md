@@ -1,6 +1,6 @@
 # Composite Device Tracker
 
-This integration creates a composite `device_tracker` entity from one or more other device trackers and/or binary sensors. It will update whenever one of the watched entities updates, taking the `last_seen`/`last_updated` (and possibly GPS and battery) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" entities update irregularly.
+This integration creates a composite `device_tracker` entity from one or more other device trackers and/or binary sensors. It will update whenever one of the watched entities updates, taking the `last_seen`, `last_timestamp` or`last_updated` (and possibly GPS and battery) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" entities update irregularly.
 
 Currently `device_tracker` entities with a `source_type` of `bluetooth`, `bluetooth_le`, `gps` or `router` are supported, as well as `binary_sensor` entities.
 
@@ -124,7 +124,7 @@ Watched GPS-based devices must have, at a minimum, the following attributes: `la
 
 For watched non-GPS-based devices, which states are used and whether any GPS data (if present) is used depends on several factors. E.g., if GPS-based devices are in use then the 'not_home'/'off' state of non-GPS-based devices will be ignored (unless `all_states` was specified as `true` for that entity.) If only non-GPS-based devices are in use, then the composite device will be 'home' if any of the watched devices are 'home'/'on', and will be 'not_home' only when _all_ the watched devices are 'not_home'/'off'.
 
-If a watched device has a `last_seen` attribute, that will be used in the composite device. If not, then `last_updated` from the entity's state will be used instead.
+If a watched device has a `last_seen` or `last_timestamp` attribute, that will be used in the composite device. If not, then `last_updated` from the entity's state will be used instead.
 
 If a watched device has a `battery` or `battery_level` attribute, that will be used to update the composite device's `battery` attribute. If it has a `battery_charging` or `charging` attribute, that will be used to udpate the composite device's `battery_charging` attribute.
 
