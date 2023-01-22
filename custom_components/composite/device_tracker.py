@@ -550,7 +550,7 @@ class Attributes:
     def get(self, key: str | Sequence[str], default: Any | None = None) -> Any | None:
         """Get item for first found key, or default if no key found."""
         if isinstance(key, str):
-            return self._attrs[key]
+            return self._attrs.get(key)
         for _key in key:
             if _key in self._attrs:
                 return self._attrs[_key]
