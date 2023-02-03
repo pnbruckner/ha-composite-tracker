@@ -85,6 +85,7 @@ class CompositeSensor(SensorEntity):
 
     _attr_should_poll = False
     _to_unit: str | None = None
+    _first_state_written = False
 
     def __init__(
         self, hass: HomeAssistant, entity_description: CompositeSensorEntityDescription
@@ -122,6 +123,12 @@ class CompositeSensor(SensorEntity):
             async_dispatcher_connect(hass, entity_description.signal, self._update)
         )
 
+    @callback
+    def async_write_ha_state(self) -> None:
+        """Write the state to the state machine."""
+        super().async_write_ha_state()
+        self._first_state_written = True
+
     async def _update(self, value: float | None, angle: int | None) -> None:
         """Update sensor with new value."""
 
@@ -141,4 +148,12 @@ class CompositeSensor(SensorEntity):
             ATTR_ANGLE: angle,
             ATTR_DIRECTION: direction(angle),
         }
-        self.async_write_ha_state()
+        # It's possible for dispatcher signal to arrive, causing this method to execute,
+        # before this sensor entity has been completely "added to hass", meaning
+        # self.hass might not yet have been initialized, causing this call to
+        # async_write_ha_state to fail. We still update our state, so that the call to
+        # async_write_ha_state at the end of the "add to hass" process will see it. Once
+        # we know that call has completed, we can go ahead and write the state here for
+        # future updates.
+        if self._first_state_written:
+            self.async_write_ha_state()
