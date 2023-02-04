@@ -195,19 +195,27 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         else:
             _LOGGER.debug("Process requirements suceeded: %s", pkg)
 
-        if pkg.split("==")[0].strip().endswith("L"):
-            from timezonefinderL import TimezoneFinder
+        def create_timefinder() -> None:
+            """Create timefinder object."""
 
-            tf = TimezoneFinder()
-        elif config[DOMAIN][CONF_TZ_FINDER_CLASS] == "TimezoneFinder":
-            from timezonefinder import TimezoneFinder
+            # This must be done in an executor since the timefinder constructor
+            # does file I/O.
 
-            tf = TimezoneFinder()
-        else:
-            from timezonefinder import TimezoneFinderL
+            if pkg.split("==")[0].strip().endswith("L"):
+                from timezonefinderL import TimezoneFinder
 
-            tf = TimezoneFinderL()
-        hass.data[DOMAIN][DATA_TF] = tf
+                tf = TimezoneFinder()
+            elif config[DOMAIN][CONF_TZ_FINDER_CLASS] == "TimezoneFinder":
+                from timezonefinder import TimezoneFinder
+
+                tf = TimezoneFinder()
+            else:
+                from timezonefinder import TimezoneFinderL
+
+                tf = TimezoneFinderL()
+            hass.data[DOMAIN][DATA_TF] = tf
+
+        await hass.async_add_executor_job(create_timefinder)
 
     return True
 

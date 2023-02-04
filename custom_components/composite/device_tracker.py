@@ -828,10 +828,14 @@ class CompositeScanner:
             if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
                 tzname: str | None = None
                 if gps:
-                    # timezone_at will return a string or None.
-                    tzname = self._tf.timezone_at(lng=gps[1], lat=gps[0])
-                    # get_time_zone will return a tzinfo or None.
-                    tzone = dt_util.get_time_zone(tzname) if tzname else None
+                    try:
+                        # timezone_at will return a string or None.
+                        tzname = self._tf.timezone_at(lng=gps[1], lat=gps[0])
+                    except Exception as exc:
+                        _LOGGER.warning("Error while finding time zone: %s", exc)
+                    else:
+                        # get_time_zone will return a tzinfo or None.
+                        tzone = dt_util.get_time_zone(tzname) if tzname else None
                 attrs: dict[str, Any] = {ATTR_TIME_ZONE: tzname or STATE_UNKNOWN}
             else:
                 attrs = {}
