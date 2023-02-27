@@ -1,4 +1,4 @@
-# Composite Device Tracker
+# <img src="https://github.com/home-assistant/brands/blob/master/custom_integrations/composite/icon.png" title="Composite" width="50"/> Composite Device Tracker
 
 This integration creates a composite `device_tracker` entity from one or more other device trackers and/or binary sensors. It will update whenever one of the watched entities updates, taking the `last_seen`, `last_timestamp` or `last_updated` (and possibly GPS and battery) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" entities update irregularly.
 
