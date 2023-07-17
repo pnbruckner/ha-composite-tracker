@@ -40,7 +40,7 @@ from .config_flow import split_conf
 from .device_tracker import COMPOSITE_TRACKER
 
 CONF_TZ_FINDER = "tz_finder"
-DEFAULT_TZ_FINDER = "timezonefinderL==4.0.2"
+DEFAULT_TZ_FINDER = "timezonefinder==6.2.0"
 CONF_TZ_FINDER_CLASS = "tz_finder_class"
 PLATFORMS = [Platform.DEVICE_TRACKER, Platform.SENSOR]
 TZ_FINDER_CLASS_OPTS = ["TimezoneFinder", "TimezoneFinderL"]
@@ -84,7 +84,7 @@ CONFIG_SCHEMA = vol.Schema(
                 {
                     vol.Optional(CONF_TZ_FINDER, default=DEFAULT_TZ_FINDER): cv.string,
                     vol.Optional(
-                        CONF_TZ_FINDER_CLASS, default=TZ_FINDER_CLASS_OPTS[0]
+                        CONF_TZ_FINDER_CLASS, default=TZ_FINDER_CLASS_OPTS[1]
                     ): vol.In(TZ_FINDER_CLASS_OPTS),
                     vol.Optional(CONF_DEFAULT_OPTIONS, default=dict): vol.Schema(
                         {
