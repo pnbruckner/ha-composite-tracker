@@ -93,14 +93,16 @@ sudo apt install libatlas3-base
 - **trackers** (*Optional*): The list of composite trackers to create. For each entry see [Tracker entries](#tracker-entries).
 NOTE: Once legacy support is removed, this variable, with at least one entry, will become required.
 
-- **tz_finder** (*Optional*): Specifies which `timezonefinder` package, and possibly version, to install. Must be formatted as required by `pip`. Default is `timezonefinderL==4.0.2`. Other common values:  
+- **tz_finder** (*Optional*): Specifies which `timezonefinder` package, and possibly version, to install. Must be formatted as required by `pip`. Default is `timezonefinder==6.2.0`. Other common values:  
 
-`timezonefinderL==2.0.1`  
 `timezonefinder`  
-`timezonefinder<6`  
-`timezonefinder==4.2.0`
+`timezonefinder<7`  
+`timezonefinder==4.2.0`  
+`timezonefinderL`  
+`timezonefinderL==4.0.2`  
+`timezonefinderL==2.0.1`
 
-- **tz_finder_class** (*Optional*): Specifies which class to use. Only applies when using `timezonefinder` package. Valid options are `TimezoneFinder` and `TimezoneFinderL`. The default is `TimezoneFinder`.
+- **tz_finder_class** (*Optional*): Specifies which class to use. Only applies when using `timezonefinder` package. Valid options are `TimezoneFinder` and `TimezoneFinderL`. The default is `TimezoneFinderL`.
 
 >Note: Starting with release 4.4.0 the `timezonefinder` package provides two classes to choose from: the original `TimezoneFinder` class, and a new class named `TimezoneFinderL`, which effectively replaces the functionality of the `timezonefinderL` package.
 
