@@ -4,8 +4,8 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.config_entries import ConfigFlow
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_NAME
+from homeassistant.data_entry_flow import FlowResult
 
 from .const import CONF_REQ_MOVEMENT, CONF_TIME_AS, DOMAIN
 

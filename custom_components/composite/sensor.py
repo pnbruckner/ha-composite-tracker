@@ -11,41 +11,9 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-
-# SensorDeviceClass.SPEED was new in 2022.10
-speed_sensor_device_class: str | None
-try:
-    from homeassistant.components.sensor import SensorDeviceClass
-
-    speed_sensor_device_class = SensorDeviceClass.SPEED
-except AttributeError:
-    speed_sensor_device_class = None
-    from homeassistant.const import (
-        EVENT_CORE_CONFIG_UPDATE,
-        LENGTH_KILOMETERS,
-        LENGTH_METERS,
-        LENGTH_MILES,
-        SPEED_KILOMETERS_PER_HOUR,
-        SPEED_MILES_PER_HOUR,
-    )
-    from homeassistant.util.distance import convert
-    from homeassistant.util.unit_system import METRIC_SYSTEM
-
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ID, CONF_NAME
-
-# UnitOfSpeed was new in 2022.11
-meters_per_second: str
-try:
-    from homeassistant.const import UnitOfSpeed
-
-    meters_per_second = UnitOfSpeed.METERS_PER_SECOND
-except ImportError:
-    from homeassistant.const import SPEED_METERS_PER_SECOND
-
-    meters_per_second = SPEED_METERS_PER_SECOND
-
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.const import CONF_ID, CONF_NAME, UnitOfSpeed
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -56,7 +24,7 @@ from .const import ATTR_ANGLE, ATTR_DIRECTION, SIG_COMPOSITE_SPEED
 class CompositeSensorEntityDescription(SensorEntityDescription):
     """Composite sensor entity description."""
 
-    id: str = None  # type: ignore[assignment]
+    obj_id: str = None  # type: ignore[assignment]
     signal: str = None  # type: ignore[assignment]
 
 
@@ -67,16 +35,15 @@ async def async_setup_entry(
 ) -> None:
     """Set up the sensor platform."""
     entity_description = CompositeSensorEntityDescription(
-        "speed",
+        key="speed",
         icon="mdi:car-speed-limiter",
         name=cast(str, entry.data[CONF_NAME]) + " Speed",
+        device_class=SensorDeviceClass.SPEED,
+        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
         state_class=SensorStateClass.MEASUREMENT,
-        id=cast(str, entry.data[CONF_ID]) + "_speed",
+        obj_id=cast(str, entry.data[CONF_ID]) + "_speed",
         signal=f"{SIG_COMPOSITE_SPEED}-{entry.data[CONF_ID]}",
     )
-    if speed_sensor_device_class:
-        entity_description.device_class = speed_sensor_device_class  # type: ignore[assignment]
-        entity_description.native_unit_of_measurement = meters_per_second
     async_add_entities([CompositeSensor(hass, entity_description)])
 
 
@@ -84,7 +51,6 @@ class CompositeSensor(SensorEntity):
     """Composite Sensor Entity."""
 
     _attr_should_poll = False
-    _to_unit: str | None = None
     _first_state_written = False
 
     def __init__(
@@ -94,30 +60,12 @@ class CompositeSensor(SensorEntity):
         assert entity_description.key == "speed"
 
         self.entity_description = entity_description
-
-        @callback
-        def set_unit_of_measurement(event: Event | None = None) -> None:
-            """Set unit of measurement based on HA config."""
-            if hass.config.units is METRIC_SYSTEM:
-                uom = SPEED_KILOMETERS_PER_HOUR
-                self._to_unit = LENGTH_KILOMETERS
-            else:
-                uom = SPEED_MILES_PER_HOUR
-                self._to_unit = LENGTH_MILES
-            self.entity_description.native_unit_of_measurement = uom
-
-        if not entity_description.device_class:
-            set_unit_of_measurement()
-            self.async_on_remove(
-                hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, set_unit_of_measurement)
-            )
-
-        self._attr_unique_id = entity_description.id
+        self._attr_unique_id = entity_description.obj_id
         self._attr_extra_state_attributes = {
             ATTR_ANGLE: None,
             ATTR_DIRECTION: None,
         }
-        self.entity_id = f"{S_DOMAIN}.{entity_description.id}"
+        self.entity_id = f"{S_DOMAIN}.{entity_description.obj_id}"
 
         self.async_on_remove(
             async_dispatcher_connect(hass, entity_description.signal, self._update)
@@ -140,10 +88,8 @@ class CompositeSensor(SensorEntity):
                 int((angle + 360 / 16) // (360 / 8))
             ]
 
-        if value and self._to_unit:
-            value = f"{convert(value, LENGTH_METERS, self._to_unit) * (60 * 60):0.1f}"  # type: ignore[assignment]
         self._attr_native_value = value
-        self.entity_description.force_update = bool(value)
+        self._attr_force_update = bool(value)
         self._attr_extra_state_attributes = {
             ATTR_ANGLE: angle,
             ATTR_DIRECTION: direction(angle),

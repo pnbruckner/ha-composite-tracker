@@ -6,22 +6,22 @@ from typing import Any, cast
 
 import voluptuous as vol
 
-from homeassistant.config import load_yaml_config_file
-from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.requirements import async_process_requirements, RequirementsNotFound
 from homeassistant.components.device_tracker import DOMAIN as DT_DOMAIN
 from homeassistant.components.device_tracker.legacy import YAML_DEVICES
 from homeassistant.components.persistent_notification import (
     async_create as pn_async_create,
 )
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config import load_yaml_config_file
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_PLATFORM, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from homeassistant.util import slugify
 
+from .config_flow import split_conf
 from .const import (
     CONF_DEFAULT_OPTIONS,
     CONF_REQ_MOVEMENT,
@@ -36,7 +36,6 @@ from .const import (
     TZ_DEVICE_LOCAL,
     TZ_DEVICE_UTC,
 )
-from .config_flow import split_conf
 from .device_tracker import COMPOSITE_TRACKER
 
 CONF_TZ_FINDER = "tz_finder"
@@ -111,7 +110,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Setup composite integration."""
+    """Set up composite integration."""
     hass.data[DOMAIN] = {DATA_LEGACY_WARNED: False}
 
     # Get a list of all the object IDs in known_devices.yaml to see if any were created
@@ -125,8 +124,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         legacy_devices = {}
     try:
         legacy_ids = [
-            cv.slugify(id)
-            for id, dev in legacy_devices.items()
+            cv.slugify(obj_id)
+            for obj_id, dev in legacy_devices.items()
             if cv.boolean(dev.get("track", False))
         ]
     except vol.Invalid:
@@ -144,13 +143,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     tracker_configs: list[dict[str, Any]] = config[DOMAIN][CONF_TRACKERS]
     conflict_ids: list[str] = []
     for conf in tracker_configs:
-        id: str = conf[CONF_ID]
+        obj_id: str = conf[CONF_ID]
 
-        if id in legacy_ids:
-            conflict_ids.append(id)
-        elif id in cfg_entries:
+        if obj_id in legacy_ids:
+            conflict_ids.append(obj_id)
+        elif obj_id in cfg_entries:
             hass.config_entries.async_update_entry(
-                cfg_entries[id], **split_conf(conf)  # type: ignore[arg-type]
+                cfg_entries[obj_id], **split_conf(conf)  # type: ignore[arg-type]
             )
         else:
             hass.async_create_task(
@@ -192,8 +191,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         except RequirementsNotFound:
             _LOGGER.debug("Process requirements failed: %s", pkg)
             return False
-        else:
-            _LOGGER.debug("Process requirements suceeded: %s", pkg)
+        _LOGGER.debug("Process requirements suceeded: %s", pkg)
 
         def create_timefinder() -> None:
             """Create timefinder object."""
@@ -202,15 +200,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             # does file I/O.
 
             if pkg.split("==")[0].strip().endswith("L"):
-                from timezonefinderL import TimezoneFinder
+                from timezonefinderL import (  # pylint: disable=import-outside-toplevel
+                    TimezoneFinder,
+                )
 
                 tf = TimezoneFinder()
             elif config[DOMAIN][CONF_TZ_FINDER_CLASS] == "TimezoneFinder":
-                from timezonefinder import TimezoneFinder
+                from timezonefinder import (  # pylint: disable=import-outside-toplevel
+                    TimezoneFinder,
+                )
 
                 tf = TimezoneFinder()
             else:
-                from timezonefinder import TimezoneFinderL
+                from timezonefinder import (  # pylint: disable=import-outside-toplevel
+                    TimezoneFinderL,
+                )
 
                 tf = TimezoneFinderL()
             hass.data[DOMAIN][DATA_TF] = tf
@@ -222,11 +226,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up config entry."""
-    # async_forward_entry_setups was new in 2022.8
-    try:
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    except AttributeError:
-        hass.config_entries.async_setup_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
