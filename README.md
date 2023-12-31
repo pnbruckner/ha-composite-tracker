@@ -74,7 +74,7 @@ where `<config>` is your Home Assistant configuration directory.
 
 ### Versions
 
-This custom integration supports HomeAssistant versions 2021.12 or newer, using Python 3.9 or newer.
+This custom integration supports HomeAssistant versions 2022.11 or newer.
 
 ### numpy on Raspberry Pi
 

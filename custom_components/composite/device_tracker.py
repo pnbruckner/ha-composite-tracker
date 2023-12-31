@@ -22,35 +22,13 @@ from homeassistant.components.device_tracker import (
     ATTR_SOURCE_TYPE,
     DOMAIN as DT_DOMAIN,
     PLATFORM_SCHEMA as DT_PLATFORM_SCHEMA,
+    SourceType,
 )
-
-# SourceType was new in 2022.9
-try:
-    from homeassistant.components.device_tracker import SourceType
-
-    source_type_bluetooth: SourceType | str = SourceType.BLUETOOTH
-    source_type_bluetooth_le: SourceType | str = SourceType.BLUETOOTH_LE
-    source_type_gps: SourceType | str = SourceType.GPS
-    source_type_router: SourceType | str = SourceType.ROUTER
-except ImportError:
-    from homeassistant.components.device_tracker import (
-        SOURCE_TYPE_BLUETOOTH,
-        SOURCE_TYPE_BLUETOOTH_LE,
-        SOURCE_TYPE_GPS,
-        SOURCE_TYPE_ROUTER,
-    )
-
-    source_type_bluetooth = SOURCE_TYPE_BLUETOOTH
-    source_type_bluetooth_le = SOURCE_TYPE_BLUETOOTH_LE
-    source_type_gps = SOURCE_TYPE_GPS
-    source_type_router = SOURCE_TYPE_ROUTER
-
 from homeassistant.components.device_tracker.config_entry import TrackerEntity
 from homeassistant.components.persistent_notification import (
     async_create as pn_async_create,
 )
-from homeassistant.components.zone import ENTITY_ID_HOME
-from homeassistant.components.zone import async_active_zone
+from homeassistant.components.zone import ENTITY_ID_HOME, async_active_zone
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_BATTERY_CHARGING,
@@ -76,7 +54,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import track_state_change
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.typing import GPSType, UNDEFINED, UndefinedType
+from homeassistant.helpers.typing import UNDEFINED, GPSType, UndefinedType
 from homeassistant.util.async_ import run_callback_threadsafe
 import homeassistant.util.dt as dt_util
 from homeassistant.util.location import distance
@@ -90,8 +68,8 @@ from .const import (
     CONF_USE_PICTURE,
     DATA_LEGACY_WARNED,
     DATA_TF,
-    DEF_TIME_AS,
     DEF_REQ_MOVEMENT,
+    DEF_TIME_AS,
     DOMAIN,
     MIN_ANGLE_SPEED,
     MIN_SPEED_SECONDS,
@@ -123,9 +101,9 @@ STATE_BINARY_SENSOR_HOME = STATE_ON
 
 SOURCE_TYPE_NON_GPS = (
     SOURCE_TYPE_BINARY_SENSOR,
-    source_type_bluetooth,
-    source_type_bluetooth_le,
-    source_type_router,
+    SourceType.BLUETOOTH,
+    SourceType.BLUETOOTH_LE,
+    SourceType.ROUTER,
 )
 
 LAST_SEEN_ATTRS = (ATTR_LAST_SEEN, ATTR_LAST_TIMESTAMP)
@@ -146,8 +124,7 @@ def _entities(entities: list[str | dict]) -> list[dict]:
                         "composite tracker",
                         path=[idx, CONF_USE_PICTURE],
                     )
-                else:
-                    already_using_picture = True
+                already_using_picture = True
             result.append(entity)
         else:
             result.append(
@@ -260,9 +237,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     def __init__(self, entry: ConfigEntry) -> None:
         """Initialize Composite Device Tracker."""
         self._attr_name: str = entry.data[CONF_NAME]
-        id: str = entry.data[CONF_ID]
-        self._attr_unique_id = id
-        self.entity_id = f"{DT_DOMAIN}.{id}"
+        obj_id: str = entry.data[CONF_ID]
+        self._attr_unique_id = obj_id
+        self.entity_id = f"{DT_DOMAIN}.{obj_id}"
         self._scanner_config: dict | None = _config_from_entry(entry)
         self._lock = asyncio.Lock()
 
@@ -348,13 +325,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         if not self._scanner_config or self._scanner:
             return
 
-        def setup_scanner() -> None:
+        def setup_comp_scanner() -> None:
             """Set up device scanner."""
             self._scanner = CompositeScanner(
                 self.hass, cast(dict, self._scanner_config), self._see
             )
 
-        await self.hass.async_add_executor_job(setup_scanner)
+        await self.hass.async_add_executor_job(setup_comp_scanner)
 
     async def _shutdown_scanner(self) -> None:
         """Shutdown device scanner."""
@@ -389,7 +366,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         gps_accuracy: int | None = None,
         battery: int | None = None,
         attributes: dict | None = None,
-        source_type: str | None = source_type_gps,
+        source_type: SourceType | str | None = SourceType.GPS,
         picture: str | None | UndefinedType = UNDEFINED,
     ) -> None:
         """Process update from CompositeScanner."""
@@ -417,7 +394,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         gps_accuracy: int | None = None,
         battery: int | None = None,
         attributes: dict | None = None,
-        source_type: str | None = source_type_gps,
+        source_type: SourceType | str | None = SourceType.GPS,
         picture: str | None | UndefinedType = UNDEFINED,
     ) -> None:
         """Process update from CompositeScanner."""
@@ -635,7 +612,7 @@ class CompositeScanner:
         if state == STATE_HOME or self._entities[entity_id].use_all_states:
             return True
         entities = self._entities.values()
-        if any(entity.source_type == source_type_gps for entity in entities):
+        if any(entity.source_type == SourceType.GPS for entity in entities):
             return False
         return all(
             cast(str, entity.data) != STATE_HOME
@@ -651,7 +628,7 @@ class CompositeScanner:
             return dt_util.as_local(utc)
         return utc
 
-    def _update_info(
+    def _update_info(  # noqa: C901
         self, entity_id: str, old_state: State | None, new_state: State | None
     ) -> None:
         """Update composite tracker from input entity state change."""
@@ -705,7 +682,7 @@ class CompositeScanner:
 
             state = new_state.state
 
-            if source_type == source_type_gps:
+            if source_type == SourceType.GPS:
                 # GPS coordinates and accuracy are required.
                 if not gps:
                     self._bad_entity(entity_id, "missing gps attributes")
@@ -783,12 +760,12 @@ class CompositeScanner:
                 if state == STATE_HOME and cur_gps_is_home:
                     gps = cast(GPSType, (cur_lat, cur_lon))
                     gps_accuracy = cur_acc
-                    source_type = source_type_gps
+                    source_type = SourceType.GPS
                 # Otherwise, if new GPS data is valid (which is unlikely if
                 # new state is not 'home'),
                 # use it and make source_type gps.
                 elif gps:
-                    source_type = source_type_gps
+                    source_type = SourceType.GPS
                 # Otherwise, if new state is 'home' and old state is not 'home'
                 # and no GPS data, then use HA's configured Home location and
                 # make source_type gps.
@@ -800,7 +777,7 @@ class CompositeScanner:
                         (self._hass.config.latitude, self._hass.config.longitude),
                     )
                     gps_accuracy = 0
-                    source_type = source_type_gps
+                    source_type = SourceType.GPS
                 # Otherwise, don't use any GPS data, but set location_name to
                 # new state.
                 else:
@@ -831,7 +808,7 @@ class CompositeScanner:
                     try:
                         # timezone_at will return a string or None.
                         tzname = self._tf.timezone_at(lng=gps[1], lat=gps[0])
-                    except Exception as exc:
+                    except Exception as exc:  # pylint: disable=broad-exception-caught
                         _LOGGER.warning("Error while finding time zone: %s", exc)
                     else:
                         # get_time_zone will return a tzinfo or None.
