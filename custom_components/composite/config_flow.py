@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_NAME
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import CONF_REQ_MOVEMENT, CONF_TIME_AS, DOMAIN
+from .const import CONF_REQ_MOVEMENT, DOMAIN
 
 
 def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -16,7 +16,7 @@ def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
         kw: {k: v for k, v in conf.items() if k in ks}
         for kw, ks in (
             ("data", (CONF_NAME, CONF_ID)),
-            ("options", (CONF_ENTITY_ID, CONF_REQ_MOVEMENT, CONF_TIME_AS)),
+            ("options", (CONF_ENTITY_ID, CONF_REQ_MOVEMENT)),
         )
     }
 

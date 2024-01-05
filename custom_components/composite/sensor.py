@@ -20,7 +20,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import ATTR_ANGLE, ATTR_DIRECTION, SIG_COMPOSITE_SPEED
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class CompositeSensorEntityDescription(SensorEntityDescription):
     """Composite sensor entity description."""
 

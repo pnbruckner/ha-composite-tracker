@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, timedelta
 from enum import Enum, auto
 from functools import partial
 import logging
@@ -14,20 +14,14 @@ import threading
 from types import MappingProxyType
 from typing import Any, Optional, cast
 
-import voluptuous as vol
-
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import (
     ATTR_BATTERY,
     ATTR_SOURCE_TYPE,
     DOMAIN as DT_DOMAIN,
-    PLATFORM_SCHEMA as DT_PLATFORM_SCHEMA,
     SourceType,
 )
 from homeassistant.components.device_tracker.config_entry import TrackerEntity
-from homeassistant.components.persistent_notification import (
-    async_create as pn_async_create,
-)
 from homeassistant.components.zone import ENTITY_ID_HOME, async_active_zone
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -41,7 +35,6 @@ from homeassistant.const import (
     CONF_ENTITY_ID,
     CONF_ID,
     CONF_NAME,
-    CONF_PLATFORM,
     STATE_HOME,
     STATE_NOT_HOME,
     STATE_ON,
@@ -49,7 +42,6 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State, callback
-import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import track_state_change
@@ -63,21 +55,11 @@ from .const import (
     CONF_ALL_STATES,
     CONF_ENTITY,
     CONF_REQ_MOVEMENT,
-    CONF_TIME_AS,
-    CONF_TRACKERS,
     CONF_USE_PICTURE,
-    DATA_LEGACY_WARNED,
-    DATA_TF,
     DEF_REQ_MOVEMENT,
-    DEF_TIME_AS,
-    DOMAIN,
     MIN_ANGLE_SPEED,
     MIN_SPEED_SECONDS,
     SIG_COMPOSITE_SPEED,
-    TIME_AS_OPTS,
-    TZ_DEVICE_LOCAL,
-    TZ_DEVICE_UTC,
-    TZ_LOCAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -109,91 +91,6 @@ SOURCE_TYPE_NON_GPS = (
 LAST_SEEN_ATTRS = (ATTR_LAST_SEEN, ATTR_LAST_TIMESTAMP)
 BATTERY_ATTRS = (ATTR_BATTERY, ATTR_BATTERY_LEVEL)
 CHARGING_ATTRS = (ATTR_BATTERY_CHARGING, ATTR_CHARGING)
-
-
-def _entities(entities: list[str | dict]) -> list[dict]:
-    """Convert entity ID to dict of entity & all_states."""
-    result: list[dict] = []
-    already_using_picture = False
-    for idx, entity in enumerate(entities):
-        if isinstance(entity, dict):
-            if entity[CONF_USE_PICTURE]:
-                if already_using_picture:
-                    raise vol.Invalid(
-                        f"{CONF_USE_PICTURE} may only be true for one entity per "
-                        "composite tracker",
-                        path=[idx, CONF_USE_PICTURE],
-                    )
-                already_using_picture = True
-            result.append(entity)
-        else:
-            result.append(
-                {CONF_ENTITY: entity, CONF_ALL_STATES: False, CONF_USE_PICTURE: False}
-            )
-    return result
-
-
-ENTITIES = vol.All(
-    cv.ensure_list,
-    [
-        vol.Any(
-            cv.entity_id,
-            vol.Schema(
-                {
-                    vol.Required(CONF_ENTITY): cv.entity_id,
-                    vol.Optional(CONF_ALL_STATES, default=False): cv.boolean,
-                    vol.Optional(CONF_USE_PICTURE, default=False): cv.boolean,
-                }
-            ),
-        )
-    ],
-    vol.Length(1),
-    _entities,
-)
-COMPOSITE_TRACKER = {
-    vol.Required(CONF_NAME): cv.slugify,
-    vol.Required(CONF_ENTITY_ID): ENTITIES,
-    vol.Optional(CONF_TIME_AS): vol.In(TIME_AS_OPTS),
-    vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
-}
-PLATFORM_SCHEMA = DT_PLATFORM_SCHEMA.extend(COMPOSITE_TRACKER)
-
-
-def setup_scanner(
-    hass: HomeAssistant,
-    config: dict,
-    see: Callable[..., None],
-    discovery_info: dict[str, Any] | None = None,
-) -> bool:
-    """Set up a device scanner."""
-    CompositeScanner(hass, config, see)
-    if not hass.data[DOMAIN][DATA_LEGACY_WARNED]:
-        _LOGGER.warning(
-            '"%s: %s" under %s is deprecated. Move to "%s: %s"',
-            CONF_PLATFORM,
-            DOMAIN,
-            DT_DOMAIN,
-            DOMAIN,
-            CONF_TRACKERS,
-        )
-        pn_async_create(
-            hass,
-            title="Composite configuration has changed",
-            message="```text\n"
-            f"{DT_DOMAIN}:\n"
-            f"- platform: {DOMAIN}\n"
-            "  <TRACKER CONFIG>\n\n"
-            "```\n"
-            "is deprecated. Move to:\n\n"
-            "```text\n"
-            f"{DOMAIN}:\n"
-            f"  {CONF_TRACKERS}:\n"
-            "  - <TRACKER_CONFIG>\n"
-            "```\n\n"
-            "Also remove entries from known_devices.yaml.",
-        )
-        hass.data[DOMAIN][DATA_LEGACY_WARNED] = True
-    return True
 
 
 async def async_setup_entry(
@@ -557,9 +454,6 @@ class CompositeScanner:
             entity_ids.append(entity_id)
         self._dev_id: str = config[CONF_NAME]
         self._entity_id = f"{DT_DOMAIN}.{self._dev_id}"
-        self._time_as: str = config.get(CONF_TIME_AS, DEF_TIME_AS)
-        if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
-            self._tf = hass.data[DOMAIN][DATA_TF]
         self._req_movement: bool = config.get(CONF_REQ_MOVEMENT, DEF_REQ_MOVEMENT)
         self._lock = threading.Lock()
 
@@ -620,14 +514,6 @@ class CompositeScanner:
             if entity.source_type in SOURCE_TYPE_NON_GPS
         )
 
-    def _dt_attr_from_utc(self, utc: datetime, tzone: tzinfo | None) -> datetime:
-        """Determine state attribute value from datetime & timezone."""
-        if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL] and tzone:
-            return utc.astimezone(tzone)
-        if self._time_as in [TZ_LOCAL, TZ_DEVICE_LOCAL]:
-            return dt_util.as_local(utc)
-        return utc
-
     def _update_info(  # noqa: C901
         self, entity_id: str, old_state: State | None, new_state: State | None
     ) -> None:
@@ -638,22 +524,20 @@ class CompositeScanner:
         new_attrs = Attributes(new_state.attributes)
 
         with self._lock:
-            # Get time device was last seen, which is specified by one the entity's
+            # Get time device was last seen, which is specified by one of the entity's
             # attributes defined by LAST_SEEN_ATTRS, or if that doesn't exist, then
-            # last_updated from the new state object. Make sure last_seen is timezone
-            # aware in UTC.
-            # Note that dt_util.as_utc assumes naive datetime is in local
-            # timezone.
+            # last_updated from the new state object.
+            # Make sure last_seen is timezone aware in local timezone.
+            # Note that dt_util.as_local assumes naive datetime is in local timezone.
             last_seen: datetime | str | None = new_attrs.get(LAST_SEEN_ATTRS)
-            if isinstance(last_seen, datetime):
-                last_seen = dt_util.as_utc(last_seen)
-            else:
+            if not isinstance(last_seen, datetime):
                 try:
                     last_seen = dt_util.utc_from_timestamp(
                         float(last_seen)  # type: ignore[arg-type]
                     )
                 except (TypeError, ValueError):
                     last_seen = new_state.last_updated
+            last_seen = dt_util.as_local(last_seen)
 
             old_last_seen = self._entities[entity_id].seen
             if old_last_seen and last_seen < old_last_seen:
@@ -801,35 +685,15 @@ class CompositeScanner:
 
             _LOGGER.debug("Updating %s from %s", self._entity_id, entity_id)
 
-            tzone: tzinfo | None = None
-            if self._time_as in [TZ_DEVICE_UTC, TZ_DEVICE_LOCAL]:
-                tzname: str | None = None
-                if gps:
-                    try:
-                        # timezone_at will return a string or None.
-                        tzname = self._tf.timezone_at(lng=gps[1], lat=gps[0])
-                    except Exception as exc:  # pylint: disable=broad-exception-caught
-                        _LOGGER.warning("Error while finding time zone: %s", exc)
-                    else:
-                        # get_time_zone will return a tzinfo or None.
-                        tzone = dt_util.get_time_zone(tzname) if tzname else None
-                attrs: dict[str, Any] = {ATTR_TIME_ZONE: tzname or STATE_UNKNOWN}
-            else:
-                attrs = {}
-
-            attrs.update(
-                {
-                    ATTR_ENTITY_ID: tuple(
-                        entity_id
-                        for entity_id, entity in self._entities.items()
-                        if entity.source_type
-                    ),
-                    ATTR_LAST_ENTITY_ID: entity_id,
-                    ATTR_LAST_SEEN: self._dt_attr_from_utc(
-                        nearest_second(last_seen), tzone
-                    ),
-                }
-            )
+            attrs = {
+                ATTR_ENTITY_ID: tuple(
+                    entity_id
+                    for entity_id, entity in self._entities.items()
+                    if entity.source_type
+                ),
+                ATTR_LAST_ENTITY_ID: entity_id,
+                ATTR_LAST_SEEN: nearest_second(last_seen),
+            }
             if charging is not None:
                 attrs[ATTR_BATTERY_CHARGING] = charging
 
