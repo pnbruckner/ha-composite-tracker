@@ -7,15 +7,9 @@ from typing import Any, cast
 import voluptuous as vol
 
 from homeassistant.components.device_tracker import DOMAIN as DT_DOMAIN
-from homeassistant.components.device_tracker.legacy import YAML_DEVICES
-from homeassistant.components.persistent_notification import (
-    async_create as pn_async_create,
-)
-from homeassistant.config import load_yaml_config_file
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_NAME, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
@@ -165,24 +159,6 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up composite integration."""
 
-    # Get a list of all the object IDs in known_devices.yaml to see if any were created
-    # when this integration was a legacy device tracker, or would otherwise conflict
-    # with IDs in our config.
-    try:
-        legacy_devices: dict[str, dict] = await hass.async_add_executor_job(
-            load_yaml_config_file, hass.config.path(YAML_DEVICES)
-        )
-    except (HomeAssistantError, FileNotFoundError):
-        legacy_devices = {}
-    try:
-        legacy_ids = [
-            cv.slugify(obj_id)
-            for obj_id, dev in legacy_devices.items()
-            if cv.boolean(dev.get("track", False))
-        ]
-    except vol.Invalid:
-        legacy_ids = []
-
     # Get all existing composite config entries.
     cfg_entries = {
         cast(str, entry.data[CONF_ID]): entry
@@ -193,15 +169,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # If not, update the config entry if one already exists for it in case the config
     # has changed, or create a new config entry if one did not already exist.
     tracker_configs: list[dict[str, Any]] = config[DOMAIN][CONF_TRACKERS]
-    conflict_ids: set[str] = set()
     tracker_ids: set[str] = set()
     for conf in tracker_configs:
         obj_id: str = conf[CONF_ID]
         tracker_ids.add(obj_id)
 
-        if obj_id in legacy_ids:
-            conflict_ids.add(obj_id)
-        elif obj_id in cfg_entries:
+        if obj_id in cfg_entries:
             hass.config_entries.async_update_entry(
                 cfg_entries[obj_id], **split_conf(conf)  # type: ignore[arg-type]
             )
@@ -212,30 +185,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 )
             )
     for obj_id, entry in cfg_entries.items():
-        if entry.source == SOURCE_IMPORT and obj_id not in (tracker_ids - conflict_ids):
+        if entry.source == SOURCE_IMPORT and obj_id not in tracker_ids:
             _LOGGER.warning(
                 "Removing %s (%s) because it is no longer in YAML configuration",
                 entry.data[CONF_NAME],
                 f"{DT_DOMAIN}.{entry.data[CONF_ID]}",
             )
             hass.async_create_task(hass.config_entries.async_remove(entry.entry_id))
-
-    if conflict_ids:
-        _LOGGER.warning("%s in %s: skipping", ", ".join(conflict_ids), YAML_DEVICES)
-        if len(conflict_ids) == 1:
-            msg1 = "ID was"
-            msg2 = "conflicts"
-        else:
-            msg1 = "IDs were"
-            msg2 = "conflict"
-        pn_async_create(
-            hass,
-            title="Conflicting IDs",
-            message=f"The following {msg1} found in {YAML_DEVICES}"
-            f" which {msg2} with the configuration of the {DOMAIN} integration."
-            " Please remove from one or the other."
-            f"\n\n{', '.join(conflict_ids)}",
-        )
 
     return True
 
