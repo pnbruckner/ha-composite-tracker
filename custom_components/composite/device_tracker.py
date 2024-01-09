@@ -29,6 +29,7 @@ from homeassistant.const import (
     ATTR_GPS_ACCURACY,
     ATTR_LATITUDE,
     ATTR_LONGITUDE,
+    ATTR_RESTORED,
     CONF_ENTITY_ID,
     CONF_ID,
     CONF_NAME,
@@ -370,6 +371,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self.latitude is None or self.longitude is None
         ):
             self._location_name = last_state.state
+        self._attr_extra_state_attributes[ATTR_RESTORED] = True
 
     def _clear_state(self) -> None:
         """Clear state."""
