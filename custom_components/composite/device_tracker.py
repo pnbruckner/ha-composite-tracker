@@ -68,10 +68,8 @@ ATTR_CHARGING = "charging"
 ATTR_LAST_SEEN = "last_seen"
 ATTR_LAST_TIMESTAMP = "last_timestamp"
 ATTR_LAST_ENTITY_ID = "last_entity_id"
-ATTR_TIME_ZONE = "time_zone"
 
 _RESTORE_EXTRA_ATTRS = (
-    ATTR_TIME_ZONE,
     ATTR_ENTITY_ID,
     ATTR_LAST_ENTITY_ID,
     ATTR_LAST_SEEN,
@@ -137,7 +135,6 @@ class EntityData:
     seen: datetime | None = None
     source_type: str | None = None
     data: Location | str | None = None
-    picture: str | None = None
 
     def set_params(self, use_all_states: bool, use_picture: bool) -> None:
         """Set parameters."""
@@ -149,14 +146,12 @@ class EntityData:
         seen: datetime,
         source_type: str,
         data: Location | str,
-        picture: str | None = None,
     ) -> None:
         """Mark entity as good."""
         self.status = EntityStatus.ACTIVE
         self.seen = seen
         self.source_type = source_type
         self.data = data
-        self.picture = picture
 
     def bad(self, message: str) -> None:
         """Mark entity as bad."""
@@ -253,13 +248,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
 
-        await self._process_config_options()
         self.async_on_remove(
             cast(ConfigEntry, self.platform.config_entry).add_update_listener(
                 self._config_entry_updated
             )
         )
-        await self._restore_state()
+        await self.async_request_call(self._process_config_options())
+        await self.async_request_call(self._restore_state())
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when entity will be removed from hass."""
@@ -279,6 +274,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         cur_entity_ids = set(self._entities)
         cfg_entity_ids = set(entity_cfgs)
+
         del_entity_ids = cur_entity_ids - cfg_entity_ids
         new_entity_ids = cfg_entity_ids - cur_entity_ids
         cur_entity_ids &= cfg_entity_ids
@@ -287,14 +283,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self.extra_state_attributes
             and self.extra_state_attributes[ATTR_LAST_ENTITY_ID]
         )
-        state_cleared = False
         for entity_id in del_entity_ids:
             entity = self._entities.pop(entity_id)
             if entity_id == last_entity_id:
                 self._clear_state()
                 if entity.use_picture:
                     self._attr_entity_picture = None
-                state_cleared = True
 
         for entity_id in cur_entity_ids:
             entity_cfg = entity_cfgs[entity_id]
@@ -308,15 +302,8 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 entity_id, entity_cfg[CONF_ALL_STATES], entity_cfg[CONF_USE_PICTURE]
             )
 
-        if state_cleared:
-            for entity_id in cfg_entity_ids:
-                await self._entity_updated(entity_id, self.hass.states.get(entity_id))
-        else:
-            for entity_id in cfg_entity_ids:
-                entity = self._entities[entity_id]
-                if entity.use_picture:
-                    self._attr_entity_picture = entity.picture
-                    break
+        for entity_id in cfg_entity_ids:
+            await self._entity_updated(entity_id, self.hass.states.get(entity_id))
 
         async def state_listener(event: Event) -> None:
             """Process input entity state update."""
@@ -325,12 +312,11 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             )
             self.async_write_ha_state()
 
-        if del_entity_ids or new_entity_ids:
-            if self._remove_track_states:
-                self._remove_track_states()
-            self._remove_track_states = async_track_state_change_event(
-                self.hass, cfg_entity_ids, state_listener
-            )
+        if self._remove_track_states:
+            self._remove_track_states()
+        self._remove_track_states = async_track_state_change_event(
+            self.hass, cfg_entity_ids, state_listener
+        )
 
     async def _config_entry_updated(self, _: HomeAssistant, entry: ConfigEntry) -> None:
         """Run when the config entry has been updated."""
@@ -432,8 +418,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         else:
             source_type = new_attrs.get(ATTR_SOURCE_TYPE)
 
+        if entity.use_picture:
+            self._attr_entity_picture = new_attrs.get(ATTR_ENTITY_PICTURE)
+
         state = new_state.state
-        picture = new_attrs.get(ATTR_ENTITY_PICTURE)
 
         if source_type == SourceType.GPS:
             # GPS coordinates and accuracy are required.
@@ -448,7 +436,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             old_data = cast(Optional[Location], entity.data)
             if last_seen == old_last_seen and new_data == old_data:
                 return
-            entity.good(last_seen, source_type, new_data, picture)
+            entity.good(last_seen, source_type, new_data)
 
             if self._req_movement and old_data:
                 dist = distance(gps[0], gps[1], old_data.gps[0], old_data.gps[1])
@@ -469,7 +457,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 else:
                     state = STATE_NOT_HOME
 
-            entity.good(last_seen, source_type, state, picture)
+            entity.good(last_seen, source_type, state)
 
             if not self._use_non_gps_data(entity_id, state):
                 return
@@ -558,8 +546,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         if charging is not None:
             attrs[ATTR_BATTERY_CHARGING] = charging
 
-        if entity.use_picture:
-            self._attr_entity_picture = picture
         self._set_state(location_name, gps, gps_accuracy, battery, attrs, source_type)
 
         self._prev_seen = last_seen

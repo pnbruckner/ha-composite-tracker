@@ -28,8 +28,11 @@ class CompositeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_import(self, data: dict[str, Any]) -> FlowResult:
         """Import config entry from configuration."""
-        await self.async_set_unique_id(data[CONF_ID])
-        self._abort_if_unique_id_configured()
+        if existing_entry := await self.async_set_unique_id(data[CONF_ID]):
+            self.hass.config_entries.async_update_entry(
+                existing_entry, **split_conf(data)  # type: ignore[arg-type]
+            )
+            return self.async_abort(reason="already_configured")
 
         return self.async_create_entry(
             title=f"{data[CONF_NAME]} (from configuration)",

@@ -1,6 +1,8 @@
 """Composite Device Tracker."""
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Coroutine
 import logging
 from typing import Any, cast
 
@@ -8,13 +10,20 @@ import voluptuous as vol
 
 from homeassistant.components.device_tracker import DOMAIN as DT_DOMAIN
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_NAME, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.const import (
+    CONF_ENTITY_ID,
+    CONF_ID,
+    CONF_NAME,
+    SERVICE_RELOAD,
+    Platform,
+)
+from homeassistant.core import HomeAssistant, ServiceCall
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.reload import async_integration_yaml_config
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 
-from .config_flow import split_conf
 from .const import (
     CONF_ALL_STATES,
     CONF_DEFAULT_OPTIONS,
@@ -159,39 +168,45 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up composite integration."""
 
-    # Get all existing composite config entries.
-    cfg_entries = {
-        cast(str, entry.data[CONF_ID]): entry
-        for entry in hass.config_entries.async_entries(DOMAIN)
-    }
+    async def process_config(config: ConfigType | None) -> None:
+        """Process Composite config."""
+        tracker_configs = cast(
+            list[dict[str, Any]], (config or {}).get(DOMAIN, {}).get(CONF_TRACKERS, [])
+        )
+        tracker_ids = [conf[CONF_ID] for conf in tracker_configs]
+        tasks: list[Coroutine[Any, Any, Any]] = []
 
-    # For each tracker config, see if it conflicts with a known_devices.yaml entry.
-    # If not, update the config entry if one already exists for it in case the config
-    # has changed, or create a new config entry if one did not already exist.
-    tracker_configs: list[dict[str, Any]] = config[DOMAIN][CONF_TRACKERS]
-    tracker_ids: set[str] = set()
-    for conf in tracker_configs:
-        obj_id: str = conf[CONF_ID]
-        tracker_ids.add(obj_id)
-
-        if obj_id in cfg_entries:
-            hass.config_entries.async_update_entry(
-                cfg_entries[obj_id], **split_conf(conf)  # type: ignore[arg-type]
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            if (
+                entry.source != SOURCE_IMPORT
+                or (obj_id := entry.data[CONF_ID]) in tracker_ids
+            ):
+                continue
+            _LOGGER.debug(
+                "Removing %s (%s) because it is no longer in YAML configuration",
+                entry.data[CONF_NAME],
+                f"{DT_DOMAIN}.{obj_id}",
             )
-        else:
-            hass.async_create_task(
+            tasks.append(hass.config_entries.async_remove(entry.entry_id))
+
+        for conf in tracker_configs:
+            tasks.append(
                 hass.config_entries.flow.async_init(
                     DOMAIN, context={"source": SOURCE_IMPORT}, data=conf
                 )
             )
-    for obj_id, entry in cfg_entries.items():
-        if entry.source == SOURCE_IMPORT and obj_id not in tracker_ids:
-            _LOGGER.warning(
-                "Removing %s (%s) because it is no longer in YAML configuration",
-                entry.data[CONF_NAME],
-                f"{DT_DOMAIN}.{entry.data[CONF_ID]}",
-            )
-            hass.async_create_task(hass.config_entries.async_remove(entry.entry_id))
+
+        if not tasks:
+            return
+
+        await asyncio.gather(*tasks)
+
+    async def reload_config(_: ServiceCall) -> None:
+        """Reload configuration."""
+        await process_config(await async_integration_yaml_config(hass, DOMAIN))
+
+    await process_config(config)
+    async_register_admin_service(hass, DOMAIN, SERVICE_RELOAD, reload_config)
 
     return True
 

@@ -1,0 +1,9 @@
+{
+    "title": "Composite",
+    "services": {
+        "reload": {
+            "name": "Reload",
+            "description": "Reloads Composite from the YAML-configuration."
+        }
+    }
+}
