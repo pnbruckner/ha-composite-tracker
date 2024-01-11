@@ -13,7 +13,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ID, CONF_NAME, UnitOfSpeed
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -36,9 +36,10 @@ async def async_setup_entry(
     """Set up the sensor platform."""
     entity_description = CompositeSensorEntityDescription(
         key="speed",
+        device_class=SensorDeviceClass.SPEED,
         icon="mdi:car-speed-limiter",
         name=cast(str, entry.data[CONF_NAME]) + " Speed",
-        device_class=SensorDeviceClass.SPEED,
+        translation_key="speed",
         native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
         state_class=SensorStateClass.MEASUREMENT,
         obj_id=cast(str, entry.data[CONF_ID]) + "_speed",
@@ -51,7 +52,7 @@ class CompositeSensor(SensorEntity):
     """Composite Sensor Entity."""
 
     _attr_should_poll = False
-    _first_state_written = False
+    _ok_to_write_state = False
 
     def __init__(
         self, hass: HomeAssistant, entity_description: CompositeSensorEntityDescription
@@ -71,11 +72,10 @@ class CompositeSensor(SensorEntity):
             async_dispatcher_connect(hass, entity_description.signal, self._update)
         )
 
-    @callback
-    def async_write_ha_state(self) -> None:
-        """Write the state to the state machine."""
-        super().async_write_ha_state()
-        self._first_state_written = True
+    async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self._ok_to_write_state = True
 
     async def _update(self, value: float | None, angle: int | None) -> None:
         """Update sensor with new value."""
@@ -99,7 +99,6 @@ class CompositeSensor(SensorEntity):
         # self.hass might not yet have been initialized, causing this call to
         # async_write_ha_state to fail. We still update our state, so that the call to
         # async_write_ha_state at the end of the "add to hass" process will see it. Once
-        # we know that call has completed, we can go ahead and write the state here for
-        # future updates.
-        if self._first_state_written:
+        # added to hass, we can go ahead and write the state here for future updates.
+        if self._ok_to_write_state:
             self.async_write_ha_state()

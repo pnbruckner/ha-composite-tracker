@@ -1,0 +1,28 @@
+{
+    "title": "Composiet",
+    "entity": {
+        "device_tracker": {
+            "tracker": {
+                "state_attributes": {
+                    "battery_charging": {"name": "Batterij opladen"},
+                    "last_entity_id": {"name": "Laatste entiteit"},
+                    "last_seen": {"name": "Laatst gezien"}
+                }
+            }
+        },
+        "sensor": {
+            "speed": {
+                "state_attributes": {
+                    "angle": {"name": "Hoek"},
+                    "direction": {"name": "Richting"}
+                }
+            }
+        }
+    },
+    "services": {
+        "reload": {
+            "name": "Herladen",
+            "description": "Herlaadt Composiet vanuit de YAML-configuratie."
+        }
+    }
+}

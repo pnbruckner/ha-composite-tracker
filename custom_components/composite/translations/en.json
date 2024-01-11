@@ -1,5 +1,24 @@
 {
     "title": "Composite",
+    "entity": {
+        "device_tracker": {
+            "tracker": {
+                "state_attributes": {
+                    "battery_charging": {"name": "Battery charging"},
+                    "last_entity_id": {"name": "Last entity"},
+                    "last_seen": {"name": "Last seen"}
+                }
+            }
+        },
+        "sensor": {
+            "speed": {
+                "state_attributes": {
+                    "angle": {"name": "Angle"},
+                    "direction": {"name": "Direction"}
+                }
+            }
+        }
+    },
     "services": {
         "reload": {
             "name": "Reload",

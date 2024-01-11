@@ -194,6 +194,8 @@ class Attributes:
 class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     """Composite Device Tracker."""
 
+    _attr_translation_key = "tracker"
+
     # State vars
     _battery_level: int | None = None
     _source_type: str | None = None

@@ -42,7 +42,10 @@ PLATFORMS = [Platform.DEVICE_TRACKER, Platform.SENSOR]
 
 
 def _entities(entities: list[str | dict]) -> list[dict]:
-    """Convert entity ID to dict of entity & all_states."""
+    """Convert entity ID to dict of entity, all_states & use_picture.
+
+    Also ensure no more than one entity has use_picture set to true.
+    """
     result: list[dict] = []
     already_using_picture = False
     for idx, entity in enumerate(entities):
@@ -66,7 +69,10 @@ def _entities(entities: list[str | dict]) -> list[dict]:
 def _tracker_ids(
     value: list[dict[vol.Required | vol.Optional, Any]]
 ) -> list[dict[vol.Required | vol.Optional, Any]]:
-    """Determine tracker ID."""
+    """Determine tracker ID.
+
+    Also ensure IDs are unique.
+    """
     ids: list[str] = []
     for conf in value:
         if CONF_ID not in conf:
@@ -112,7 +118,7 @@ def _defaults(config: dict) -> dict:
     return config
 
 
-ENTITIES = vol.All(
+_ENTITIES = vol.All(
     cv.ensure_list,
     [
         vol.Any(
@@ -129,10 +135,10 @@ ENTITIES = vol.All(
     vol.Length(1),
     _entities,
 )
-TRACKER = {
+_TRACKER = {
     vol.Required(CONF_NAME): cv.string,
     vol.Optional(CONF_ID): cv.slugify,
-    vol.Required(CONF_ENTITY_ID): ENTITIES,
+    vol.Required(CONF_ENTITY_ID): _ENTITIES,
     vol.Optional(CONF_TIME_AS): cv.string,
     vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
 }
@@ -152,7 +158,7 @@ CONFIG_SCHEMA = vol.Schema(
                         }
                     ),
                     vol.Optional(CONF_TRACKERS, default=list): vol.All(
-                        cv.ensure_list, [TRACKER], _tracker_ids
+                        cv.ensure_list, [_TRACKER], _tracker_ids
                     ),
                 }
             ),
