@@ -47,6 +47,7 @@
             "tracker": {
                 "state_attributes": {
                     "battery_charging": {"name": "Battery charging"},
+                    "entities": {"name": "Seen entities"},
                     "last_entity_id": {"name": "Last entity"},
                     "last_seen": {"name": "Last seen"}
                 }

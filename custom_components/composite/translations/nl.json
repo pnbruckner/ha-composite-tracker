@@ -47,6 +47,7 @@
             "tracker": {
                 "state_attributes": {
                     "battery_charging": {"name": "Batterij opladen"},
+                    "entities": {"name": "Entiteiten gezien"},
                     "last_entity_id": {"name": "Laatste entiteit"},
                     "last_seen": {"name": "Laatst gezien"}
                 }

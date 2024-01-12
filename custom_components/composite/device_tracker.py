@@ -49,6 +49,7 @@ import homeassistant.util.dt as dt_util
 from homeassistant.util.location import distance
 
 from .const import (
+    ATTR_ENTITIES,
     CONF_ALL_STATES,
     CONF_ENTITY,
     CONF_REQ_MOVEMENT,
@@ -71,6 +72,7 @@ ATTR_LAST_ENTITY_ID = "last_entity_id"
 
 _RESTORE_EXTRA_ATTRS = (
     ATTR_ENTITY_ID,
+    ATTR_ENTITIES,
     ATTR_LAST_ENTITY_ID,
     ATTR_LAST_SEEN,
     ATTR_BATTERY_CHARGING,
@@ -356,6 +358,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._attr_extra_state_attributes = {
             k: v for k, v in last_state.attributes.items() if k in _RESTORE_EXTRA_ATTRS
         }
+        # List of seen entity IDs used to be in ATTR_ENTITY_ID.
+        # If present, move it to ATTR_ENTITIES.
+        if ATTR_ENTITY_ID in self._attr_extra_state_attributes:
+            self._attr_extra_state_attributes[
+                ATTR_ENTITIES
+            ] = self._attr_extra_state_attributes.pop(ATTR_ENTITY_ID)
         with suppress(KeyError):
             self._attr_extra_state_attributes[ATTR_LAST_SEEN] = dt_util.parse_datetime(
                 self._attr_extra_state_attributes[ATTR_LAST_SEEN]
@@ -542,7 +550,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         _LOGGER.debug("Updating %s from %s", self.entity_id, entity_id)
 
         attrs = {
-            ATTR_ENTITY_ID: tuple(
+            ATTR_ENTITIES: tuple(
                 entity_id
                 for entity_id, _entity in self._entities.items()
                 if _entity.source_type

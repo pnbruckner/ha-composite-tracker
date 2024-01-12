@@ -1,8 +1,8 @@
 {
   "domain": "composite",
   "name": "Composite",
-  "config_flow": true,
   "codeowners": ["@pnbruckner"],
+  "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/master/README.md",
   "iot_class": "local_polling",

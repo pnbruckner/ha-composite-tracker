@@ -16,5 +16,6 @@ DEF_REQ_MOVEMENT = False
 MIN_SPEED_SECONDS = 3
 MIN_ANGLE_SPEED = 1  # meters / second
 
+ATTR_ENTITIES = "entities"
 ATTR_ANGLE = "angle"
 ATTR_DIRECTION = "direction"
