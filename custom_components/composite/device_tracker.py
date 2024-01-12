@@ -217,6 +217,11 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._entities: dict[str, EntityData] = {}
 
     @property
+    def force_update(self) -> bool:
+        """Return True if state updates should be forced."""
+        return False
+
+    @property
     def battery_level(self) -> int | None:
         """Return the battery level of the device."""
         return self._battery_level

@@ -1,5 +1,47 @@
 {
     "title": "Composiet",
+    "config": {
+        "step": {
+            "all_states": {
+                "title": "Gebruik alle staten",
+                "description": "Selecteer entiteiten waarvoor alle staten moeten worden gebruikt.\nHoud er rekening mee dat dit alleen van toepassing is op entiteiten waarvan het brontype niet GPS is.",
+                "data": {
+                    "entity": "Entiteit"
+                }
+            },
+            "id": {
+                "title": "Object-ID",
+                "data": {
+                    "id": "Object-ID"
+                }
+            },
+            "name": {
+                "title": "Naam",
+                "data": {
+                    "name": "Naam"
+                }
+            },
+            "options": {
+                "title": "Samengestelde opties",
+                "data": {
+                    "entity_id": "Voer entiteiten in",
+                    "require_movement": "Vereist beweging"
+                }
+            },
+            "use_picture": {
+                "title": "Afbeeldingsentiteit",
+                "description": "Kies de entiteit waarvan de afbeelding voor de composiet zal worden gebruikt.\nHet is misschien geen.",
+                "data": {
+                    "entity": "Entiteit"
+                }
+            }
+        },
+        "error": {
+            "at_least_one_entity": "Moet ten minste één invoerentiteit selecteren.",
+            "id_used": "Object-ID is al gebruikt.",
+            "name_used": "Naam is al gebruikt."
+        }
+    },
     "entity": {
         "device_tracker": {
             "tracker": {
@@ -17,6 +59,34 @@
                     "direction": {"name": "Richting"}
                 }
             }
+        }
+    },
+    "options": {
+        "step": {
+            "all_states": {
+                "title": "Gebruik alle staten",
+                "description": "Selecteer entiteiten waarvoor alle staten moeten worden gebruikt.\nHoud er rekening mee dat dit alleen van toepassing is op entiteiten waarvan het brontype niet GPS is.",
+                "data": {
+                    "entity": "Entiteit"
+                }
+            },
+            "options": {
+                "title": "Samengestelde opties",
+                "data": {
+                    "entity_id": "Voer entiteiten in",
+                    "require_movement": "Vereist beweging"
+                }
+            },
+            "use_picture": {
+                "title": "Afbeeldingsentiteit",
+                "description": "Kies de entiteit waarvan de afbeelding voor de composiet zal worden gebruikt.\nHet is misschien geen.",
+                "data": {
+                    "entity": "Entiteit"
+                }
+            }
+        },
+        "error": {
+            "at_least_one_entity": "Must select at least one input entity."
         }
     },
     "services": {
