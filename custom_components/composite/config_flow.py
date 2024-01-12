@@ -115,7 +115,7 @@ class CompositeFlow(FlowHandler):
                 },
             )
         return self.async_show_form(
-            step_id="options", data_schema=data_schema, errors=errors
+            step_id="options", data_schema=data_schema, errors=errors, last_step=False
         )
 
     async def async_step_use_picture(
@@ -144,7 +144,9 @@ class CompositeFlow(FlowHandler):
             data_schema = self.add_suggested_values_to_schema(
                 data_schema, {CONF_ENTITY: picture_entity_id}
             )
-        return self.async_show_form(step_id="use_picture", data_schema=data_schema)
+        return self.async_show_form(
+            step_id="use_picture", data_schema=data_schema, last_step=False
+        )
 
     async def async_step_all_states(
         self, user_input: dict[str, Any] | None = None
