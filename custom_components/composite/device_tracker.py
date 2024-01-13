@@ -20,7 +20,7 @@ from homeassistant.components.device_tracker import (
 )
 from homeassistant.components.device_tracker.config_entry import TrackerEntity
 from homeassistant.components.zone import ENTITY_ID_HOME, async_active_zone
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import (
     ATTR_BATTERY_CHARGING,
     ATTR_BATTERY_LEVEL,
@@ -40,6 +40,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import Event, HomeAssistant, State
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
@@ -94,12 +95,10 @@ _CHARGING_ATTRS = (ATTR_BATTERY_CHARGING, ATTR_CHARGING)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    _hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the device tracker platform."""
-    async_add_entities(
-        [CompositeDeviceTracker(entry.data[CONF_NAME], entry.data[CONF_ID])]
-    )
+    async_add_entities([CompositeDeviceTracker(entry)])
 
 
 def _nearest_second(time: datetime) -> datetime:
@@ -210,11 +209,16 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     _remove_track_states: Callable[[], None] | None = None
     _req_movement: bool
 
-    def __init__(self, name: str, obj_id: str) -> None:
+    def __init__(self, entry: ConfigEntry) -> None:
         """Initialize Composite Device Tracker."""
-        self.entity_id = f"{DT_DOMAIN}.{obj_id}"
-        self._attr_name = name
-        self._attr_unique_id = obj_id
+        if entry.source == SOURCE_IMPORT:
+            obj_id = entry.data[CONF_ID]
+            self.entity_id = f"{DT_DOMAIN}.{obj_id}"
+            self._attr_name = cast(str, entry.data[CONF_NAME])
+            self._attr_unique_id = obj_id
+        else:
+            self._attr_name = entry.title
+            self._attr_unique_id = entry.entry_id
         self._attr_extra_state_attributes = {}
         self._entities: dict[str, EntityData] = {}
 
@@ -327,8 +331,15 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self.hass, cfg_entity_ids, state_listener
         )
 
-    async def _config_entry_updated(self, _: HomeAssistant, entry: ConfigEntry) -> None:
+    async def _config_entry_updated(
+        self, hass: HomeAssistant, entry: ConfigEntry
+    ) -> None:
         """Run when the config entry has been updated."""
+        if (new_name := entry.title) != self._attr_name:
+            self._attr_name = new_name
+            er.async_get(hass).async_update_entity(
+                self.entity_id, original_name=self.name
+            )
         await self.async_request_call(self._process_config_options())
         self.async_write_ha_state()
 

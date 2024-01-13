@@ -6,7 +6,7 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.components.device_tracker import DOMAIN as DT_DOMAIN
+from homeassistant.backports.functools import cached_property
 from homeassistant.config_entries import (
     SOURCE_IMPORT,
     ConfigEntry,
@@ -16,14 +16,12 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_NAME
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowHandler, FlowResult
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
     TextSelector,
 )
-from homeassistant.util import slugify
 
 from .const import (
     CONF_ALL_STATES,
@@ -48,14 +46,10 @@ def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
 class CompositeFlow(FlowHandler):
     """Composite flow mixin."""
 
-    _existing_entries: list[ConfigEntry] | None = None
-
-    @property
+    @cached_property
     def _entries(self) -> list[ConfigEntry]:
         """Get existing config entries."""
-        if self._existing_entries is None:
-            self._existing_entries = self.hass.config_entries.async_entries(DOMAIN)
-        return self._existing_entries
+        return self.hass.config_entries.async_entries(DOMAIN)
 
     @property
     @abstractmethod
@@ -188,7 +182,6 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
     VERSION = 1
 
     _name = ""
-    _id: str
 
     def __init__(self) -> None:
         """Initialize config flow."""
@@ -232,6 +225,16 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
         """Start user config flow."""
         return await self.async_step_name()
 
+    def _name_used(self, name: str) -> bool:
+        """Return if name has already been used."""
+        for entry in self._entries:
+            if entry.source == SOURCE_IMPORT:
+                if name == entry.data[CONF_NAME]:
+                    return True
+            elif name == entry.title:
+                return True
+        return False
+
     async def async_step_name(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -240,9 +243,8 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
 
         if user_input is not None:
             self._name = user_input[CONF_NAME]
-            if not any(self._name == entry.data[CONF_NAME] for entry in self._entries):
-                self._id = f"composite_{slugify(self._name)}"
-                return await self.async_step_id()
+            if not self._name_used(self._name):
+                return await self.async_step_options()
             errors[CONF_NAME] = "name_used"
 
         data_schema = vol.Schema({vol.Required(CONF_NAME): TextSelector()})
@@ -253,34 +255,9 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
             step_id="name", data_schema=data_schema, errors=errors, last_step=False
         )
 
-    async def async_step_id(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Get object ID."""
-        errors = {}
-
-        if user_input is not None:
-            self._id = user_input[CONF_ID]
-            registry = er.async_get(self.hass)
-            if not registry.async_is_registered(f"{DT_DOMAIN}.{self._id}"):
-                return await self.async_step_options()
-            errors[CONF_ID] = "id_used"
-
-        data_schema = vol.Schema({vol.Required(CONF_ID): TextSelector()})
-        data_schema = self.add_suggested_values_to_schema(
-            data_schema, {CONF_ID: self._id}
-        )
-        return self.async_show_form(
-            step_id="id", data_schema=data_schema, errors=errors, last_step=False
-        )
-
     async def async_step_done(self, _: dict[str, Any] | None = None) -> FlowResult:
         """Finish the flow."""
-        return self.async_create_entry(
-            title=self._name,
-            data={CONF_NAME: self._name, CONF_ID: self._id},
-            options=self.options,
-        )
+        return self.async_create_entry(title=self._name, data={}, options=self.options)
 
 
 class CompositeOptionsFlow(OptionsFlowWithConfigEntry, CompositeFlow):
@@ -288,4 +265,4 @@ class CompositeOptionsFlow(OptionsFlowWithConfigEntry, CompositeFlow):
 
     async def async_step_done(self, _: dict[str, Any] | None = None) -> FlowResult:
         """Finish the flow."""
-        return self.async_create_entry(title="", data=self.options or {})
+        return self.async_create_entry(title="", data=self.options)

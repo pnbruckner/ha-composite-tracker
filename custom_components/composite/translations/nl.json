@@ -9,12 +9,6 @@
                     "entity": "Entiteit"
                 }
             },
-            "id": {
-                "title": "Object-ID",
-                "data": {
-                    "id": "Object-ID"
-                }
-            },
             "name": {
                 "title": "Naam",
                 "data": {
@@ -38,7 +32,6 @@
         },
         "error": {
             "at_least_one_entity": "Moet ten minste één invoerentiteit selecteren.",
-            "id_used": "Object-ID is al gebruikt.",
             "name_used": "Naam is al gebruikt."
         }
     },
@@ -55,6 +48,7 @@
         },
         "sensor": {
             "speed": {
+                "name": "{name} snelheid",
                 "state_attributes": {
                     "angle": {"name": "Hoek"},
                     "direction": {"name": "Richting"}

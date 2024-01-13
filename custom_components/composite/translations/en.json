@@ -9,12 +9,6 @@
                     "entity": "Entity"
                 }
             },
-            "id": {
-                "title": "Object Identifier",
-                "data": {
-                    "id": "Object ID"
-                }
-            },
             "name": {
                 "title": "Name",
                 "data": {
@@ -38,7 +32,6 @@
         },
         "error": {
             "at_least_one_entity": "Must select at least one input entity.",
-            "id_used": "Object identifier has already been used.",
             "name_used": "Name has already been used."
         }
     },
@@ -55,6 +48,7 @@
         },
         "sensor": {
             "speed": {
+                "name": "{name} speed",
                 "state_attributes": {
                     "angle": {"name": "Angle"},
                     "direction": {"name": "Direction"}
