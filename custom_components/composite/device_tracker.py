@@ -50,7 +50,10 @@ import homeassistant.util.dt as dt_util
 from homeassistant.util.location import distance
 
 from .const import (
+    ATTR_ACC,
     ATTR_ENTITIES,
+    ATTR_LAT,
+    ATTR_LON,
     CONF_ALL_STATES,
     CONF_ENTITY,
     CONF_REQ_MOVEMENT,
@@ -89,9 +92,10 @@ _SOURCE_TYPE_NON_GPS = (
     SourceType.ROUTER,
 )
 
-_LAST_SEEN_ATTRS = (ATTR_LAST_SEEN, ATTR_LAST_TIMESTAMP)
+_GPS_ACCURACY_ATTRS = (ATTR_GPS_ACCURACY, ATTR_ACC)
 _BATTERY_ATTRS = (ATTR_BATTERY, ATTR_BATTERY_LEVEL)
 _CHARGING_ATTRS = (ATTR_BATTERY_CHARGING, ATTR_CHARGING)
+_LAST_SEEN_ATTRS = (ATTR_LAST_SEEN, ATTR_LAST_TIMESTAMP)
 
 
 async def async_setup_entry(
@@ -425,14 +429,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             return
 
         # Try to get GPS and battery data.
-        try:
-            gps: GPSType | None = cast(
-                GPSType,
-                (new_attrs[ATTR_LATITUDE], new_attrs[ATTR_LONGITUDE]),
-            )
-        except KeyError:
-            gps = None
-        gps_accuracy = cast(Optional[int], new_attrs.get(ATTR_GPS_ACCURACY))
+        gps: GPSType | None = None
+        with suppress(KeyError):
+            gps = new_attrs[ATTR_LATITUDE], new_attrs[ATTR_LONGITUDE]
+        if not gps:
+            with suppress(KeyError):
+                gps = new_attrs[ATTR_LAT], new_attrs[ATTR_LON]
+        gps_accuracy = cast(Optional[int], new_attrs.get(_GPS_ACCURACY_ATTRS))
         battery = cast(Optional[int], new_attrs.get(_BATTERY_ATTRS))
         charging = cast(Optional[bool], new_attrs.get(_CHARGING_ATTRS))
         # Don't use location_name unless we have to.
@@ -442,7 +445,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         if new_state.domain == BS_DOMAIN:
             source_type: str | None = _SOURCE_TYPE_BINARY_SENSOR
         else:
-            source_type = new_attrs.get(ATTR_SOURCE_TYPE)
+            source_type = new_attrs.get(
+                ATTR_SOURCE_TYPE, SourceType.GPS if gps and gps_accuracy else None
+            )
 
         if entity.use_picture:
             self._attr_entity_picture = new_attrs.get(ATTR_ENTITY_PICTURE)

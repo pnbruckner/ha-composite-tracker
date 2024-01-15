@@ -7,14 +7,23 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.backports.functools import cached_property
+from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
+from homeassistant.components.device_tracker import DOMAIN as DT_DOMAIN
 from homeassistant.config_entries import (
     SOURCE_IMPORT,
     ConfigEntry,
     ConfigFlow,
     OptionsFlowWithConfigEntry,
 )
-from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_NAME
-from homeassistant.core import callback
+from homeassistant.const import (
+    ATTR_GPS_ACCURACY,
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
+    CONF_ENTITY_ID,
+    CONF_ID,
+    CONF_NAME,
+)
+from homeassistant.core import State, callback
 from homeassistant.data_entry_flow import FlowHandler, FlowResult
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -24,6 +33,9 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    ATTR_ACC,
+    ATTR_LAT,
+    ATTR_LON,
     CONF_ALL_STATES,
     CONF_ENTITY,
     CONF_REQ_MOVEMENT,
@@ -59,7 +71,7 @@ class CompositeFlow(FlowHandler):
     @property
     def _entity_ids(self) -> list[str]:
         """Get currently configured entity IDs."""
-        return [cfg[CONF_ENTITY] for cfg in self.options[CONF_ENTITY_ID]]
+        return [cfg[CONF_ENTITY] for cfg in self.options.get(CONF_ENTITY_ID, [])]
 
     async def async_step_options(
         self, user_input: dict[str, Any] | None = None
@@ -89,12 +101,27 @@ class CompositeFlow(FlowHandler):
                 return await self.async_step_use_picture()
             errors[CONF_ENTITY_ID] = "at_least_one_entity"
 
+        def entity_filter(state: State) -> bool:
+            """Return if entity should be included in input list."""
+            if state.domain in (BS_DOMAIN, DT_DOMAIN):
+                return True
+            attributes = state.attributes
+            if ATTR_GPS_ACCURACY not in attributes and ATTR_ACC not in attributes:
+                return False
+            if ATTR_LATITUDE in attributes and ATTR_LONGITUDE in attributes:
+                return True
+            return ATTR_LAT in attributes and ATTR_LON in attributes
+
+        include_entities = set(self._entity_ids)
+        include_entities |= {
+            state.entity_id
+            for state in filter(entity_filter, self.hass.states.async_all())
+        }
         data_schema = vol.Schema(
             {
                 vol.Required(CONF_ENTITY_ID): EntitySelector(
                     EntitySelectorConfig(
-                        domain=["binary_sensor", "device_tracker"],
-                        multiple=True,
+                        include_entities=list(include_entities), multiple=True
                     )
                 ),
                 vol.Required(CONF_REQ_MOVEMENT): BooleanSelector(),
@@ -147,13 +174,14 @@ class CompositeFlow(FlowHandler):
     ) -> FlowResult:
         """Specify if all states should be used for appropriate entities."""
         if user_input is not None:
+            entity_ids = user_input.get(CONF_ENTITY, [])
             for cfg in self.options[CONF_ENTITY_ID]:
-                cfg[CONF_ALL_STATES] = cfg[CONF_ENTITY] in user_input[CONF_ENTITY]
+                cfg[CONF_ALL_STATES] = cfg[CONF_ENTITY] in entity_ids
             return await self.async_step_done()
 
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_ENTITY): EntitySelector(
+                vol.Optional(CONF_ENTITY): EntitySelector(
                     EntitySelectorConfig(
                         include_entities=self._entity_ids, multiple=True
                     )
