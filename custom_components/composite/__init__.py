@@ -157,8 +157,8 @@ CONFIG_SCHEMA = vol.Schema(
                             ): cv.boolean,
                         }
                     ),
-                    vol.Optional(CONF_TRACKERS, default=list): vol.All(
-                        cv.ensure_list, [_TRACKER], _tracker_ids
+                    vol.Required(CONF_TRACKERS, default=list): vol.All(
+                        cv.ensure_list, vol.Length(1), [_TRACKER], _tracker_ids
                     ),
                 }
             ),

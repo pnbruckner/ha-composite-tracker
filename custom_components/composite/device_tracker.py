@@ -146,12 +146,7 @@ class EntityData:
         self.use_all_states = use_all_states
         self.use_picture = use_picture
 
-    def good(
-        self,
-        seen: datetime,
-        source_type: str,
-        data: Location | str,
-    ) -> None:
+    def good(self, seen: datetime, source_type: str, data: Location | str) -> None:
         """Mark entity as good."""
         self.status = EntityStatus.ACTIVE
         self.seen = seen
@@ -438,8 +433,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         gps_accuracy = cast(Optional[int], new_attrs.get(_GPS_ACCURACY_ATTRS))
         battery = cast(Optional[int], new_attrs.get(_BATTERY_ATTRS))
         charging = cast(Optional[bool], new_attrs.get(_CHARGING_ATTRS))
-        # Don't use location_name unless we have to.
-        location_name: str | None = None
 
         # What type of tracker is this?
         if new_state.domain == BS_DOMAIN:
@@ -453,6 +446,8 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self._attr_entity_picture = new_attrs.get(ATTR_ENTITY_PICTURE)
 
         state = new_state.state
+        # Don't use location_name unless we have to.
+        location_name: str | None = None
 
         if source_type == SourceType.GPS:
             # GPS coordinates and accuracy are required.
