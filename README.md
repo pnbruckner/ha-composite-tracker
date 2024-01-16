@@ -78,7 +78,7 @@ For watched non-GPS-based devices, which states are used and whether any GPS dat
 
 If a watched device has a `last_seen` or `last_timestamp` attribute, that will be used in the composite device. If not, then `last_updated` from the entity's state will be used instead.
 
-If a watched device has a `battery` or `battery_level` attribute, that will be used to update the composite device's `battery` attribute. If it has a `battery_charging` or `charging` attribute, that will be used to udpate the composite device's `battery_charging` attribute.
+If a watched device has a `battery_level` or `battery` attribute, that will be used to update the composite device's `battery_level` attribute. If it has a `battery_charging` or `charging` attribute, that will be used to udpate the composite device's `battery_charging` attribute.
 
 ## `device_tracker` Attributes
 
