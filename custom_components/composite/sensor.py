@@ -1,7 +1,6 @@
 """Composite Sensor."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import cast
 
 from homeassistant.components.sensor import (
@@ -11,71 +10,77 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import CONF_ID, CONF_NAME, UnitOfSpeed
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import ATTR_ANGLE, ATTR_DIRECTION, SIG_COMPOSITE_SPEED
 
 
-@dataclass
-class CompositeSensorEntityDescription(SensorEntityDescription):
-    """Composite sensor entity description."""
-
-    obj_id: str = None  # type: ignore[assignment]
-    signal: str = None  # type: ignore[assignment]
-
-
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the sensor platform."""
-    entity_description = CompositeSensorEntityDescription(
-        key="speed",
-        icon="mdi:car-speed-limiter",
-        name=cast(str, entry.data[CONF_NAME]) + " Speed",
-        device_class=SensorDeviceClass.SPEED,
-        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
-        state_class=SensorStateClass.MEASUREMENT,
-        obj_id=cast(str, entry.data[CONF_ID]) + "_speed",
-        signal=f"{SIG_COMPOSITE_SPEED}-{entry.data[CONF_ID]}",
-    )
-    async_add_entities([CompositeSensor(hass, entity_description)])
+    async_add_entities([CompositeSensor(hass, entry)])
 
 
 class CompositeSensor(SensorEntity):
     """Composite Sensor Entity."""
 
     _attr_should_poll = False
-    _first_state_written = False
+    _ok_to_write_state = False
 
-    def __init__(
-        self, hass: HomeAssistant, entity_description: CompositeSensorEntityDescription
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize composite sensor entity."""
-        assert entity_description.key == "speed"
-
+        if entry.source == SOURCE_IMPORT:
+            entity_description = SensorEntityDescription(
+                key="speed",
+                device_class=SensorDeviceClass.SPEED,
+                icon="mdi:car-speed-limiter",
+                name=cast(str, entry.data[CONF_NAME]) + " Speed",
+                translation_key="speed",
+                native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+                state_class=SensorStateClass.MEASUREMENT,
+            )
+            obj_id = (signal := cast(str, entry.data[CONF_ID])) + "_speed"
+            self.entity_id = f"{S_DOMAIN}.{obj_id}"
+            self._attr_unique_id = obj_id
+        else:
+            entity_description = SensorEntityDescription(
+                key="speed",
+                device_class=SensorDeviceClass.SPEED,
+                icon="mdi:car-speed-limiter",
+                has_entity_name=True,
+                translation_key="speed",
+                native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+                state_class=SensorStateClass.MEASUREMENT,
+            )
+            self._attr_translation_placeholders = {"name": entry.title}
+            self._attr_unique_id = signal = entry.entry_id
         self.entity_description = entity_description
-        self._attr_unique_id = entity_description.obj_id
         self._attr_extra_state_attributes = {
             ATTR_ANGLE: None,
             ATTR_DIRECTION: None,
         }
-        self.entity_id = f"{S_DOMAIN}.{entity_description.obj_id}"
 
         self.async_on_remove(
-            async_dispatcher_connect(hass, entity_description.signal, self._update)
+            async_dispatcher_connect(
+                hass, f"{SIG_COMPOSITE_SPEED}-{signal}", self._update
+            )
         )
 
-    @callback
-    def async_write_ha_state(self) -> None:
-        """Write the state to the state machine."""
-        super().async_write_ha_state()
-        self._first_state_written = True
+    async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            cast(ConfigEntry, self.platform.config_entry).add_update_listener(
+                self._config_entry_updated
+            )
+        )
+        self._ok_to_write_state = True
 
     async def _update(self, value: float | None, angle: int | None) -> None:
         """Update sensor with new value."""
@@ -99,7 +104,21 @@ class CompositeSensor(SensorEntity):
         # self.hass might not yet have been initialized, causing this call to
         # async_write_ha_state to fail. We still update our state, so that the call to
         # async_write_ha_state at the end of the "add to hass" process will see it. Once
-        # we know that call has completed, we can go ahead and write the state here for
-        # future updates.
-        if self._first_state_written:
+        # added to hass, we can go ahead and write the state here for future updates.
+        if self._ok_to_write_state:
             self.async_write_ha_state()
+
+    async def _config_entry_updated(
+        self, hass: HomeAssistant, entry: ConfigEntry
+    ) -> None:
+        """Run when the config entry has been updated."""
+        if (new_name := entry.title) != self._attr_translation_placeholders["name"]:
+            # Need to change _attr_translation_placeholders (instead of the dict to
+            # which it refers) to clear the cached_property in new HA versions.
+            self._attr_translation_placeholders = {"name": new_name}
+            # Clear cached_property in new HA versions.
+            self._attr_name = ""
+            del self._attr_name
+            er.async_get(hass).async_update_entity(
+                self.entity_id, original_name=self.name
+            )

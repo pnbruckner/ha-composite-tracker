@@ -1,0 +1,93 @@
+{
+    "title": "Composite",
+    "config": {
+        "step": {
+            "all_states": {
+                "title": "Use All States",
+                "description": "Select entities for which all states should be used.\nNote that this only applies to entities whose source type is not GPS.",
+                "data": {
+                    "entity": "Entity"
+                }
+            },
+            "name": {
+                "title": "Name",
+                "data": {
+                    "name": "Name"
+                }
+            },
+            "options": {
+                "title": "Composite Options",
+                "data": {
+                    "entity_id": "Input entities",
+                    "require_movement": "Require movement"
+                }
+            },
+            "use_picture": {
+                "title": "Picture Entity",
+                "description": "Choose entity whose picture will be used for the composite.\nIt may be none.",
+                "data": {
+                    "entity": "Entity"
+                }
+            }
+        },
+        "error": {
+            "at_least_one_entity": "Must select at least one input entity.",
+            "name_used": "Name has already been used."
+        }
+    },
+    "entity": {
+        "device_tracker": {
+            "tracker": {
+                "state_attributes": {
+                    "battery_charging": {"name": "Battery charging"},
+                    "entities": {"name": "Seen entities"},
+                    "last_entity_id": {"name": "Last entity"},
+                    "last_seen": {"name": "Last seen"}
+                }
+            }
+        },
+        "sensor": {
+            "speed": {
+                "name": "{name} speed",
+                "state_attributes": {
+                    "angle": {"name": "Angle"},
+                    "direction": {"name": "Direction"}
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "all_states": {
+                "title": "Use All States",
+                "description": "Select entities for which all states should be used.\nNote that this only applies to entities whose source type is not GPS.",
+                "data": {
+                    "entity": "Entity"
+                }
+            },
+            "options": {
+                "title": "Composite Options",
+                "data": {
+                    "entity_id": "Input entities",
+                    "require_movement": "Require movement"
+                }
+            },
+            "use_picture": {
+                "title": "Picture Entity",
+                "description": "Choose entity whose picture will be used for the composite.\nIt may be none.",
+                "data": {
+                    "entity": "Entity"
+                }
+            }
+        },
+        "error": {
+            "at_least_one_entity": "Must select at least one input entity."
+        }
+    },
+    "services": {
+        "reload": {
+            "name": "Reload",
+            "description": "Reloads Composite from the YAML-configuration."
+        }
+    }
+}
