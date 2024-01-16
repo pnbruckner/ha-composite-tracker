@@ -211,7 +211,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         """Reload configuration."""
         await process_config(await async_integration_yaml_config(hass, DOMAIN))
 
-    await process_config(config)
+    hass.async_create_background_task(
+        process_config(config), f"Proccess {DOMAIN} YAML configuration"
+    )
     async_register_admin_service(hass, DOMAIN, SERVICE_RELOAD, reload_config)
 
     return True
