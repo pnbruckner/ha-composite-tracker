@@ -144,7 +144,7 @@ _TRACKER = {
 }
 CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Optional(DOMAIN, default=dict): vol.All(
+        vol.Optional(DOMAIN): vol.All(
             vol.Schema(
                 {
                     vol.Optional(CONF_TZ_FINDER): cv.string,
