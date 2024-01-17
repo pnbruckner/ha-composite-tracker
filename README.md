@@ -10,6 +10,7 @@ Currently any entity that has "GPS" attributes (`gps_accuracy` or `acc`, and eit
 
 - All time zone related features have been removed. See https://github.com/pnbruckner/ha-entity-tz for an integration that replaces those features, and more.
 - Any tracker entry removed from YAML configuration will be removed from the system.
+- `trackers` in YAML configuration must have at least one entry.
 - The `entity_id` attribute has been changed to `entities`. `entity_id` did not show up in the attribute list in the UI.
 
 ## Installation
