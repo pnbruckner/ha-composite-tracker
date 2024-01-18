@@ -180,8 +180,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             list[dict[str, Any]], (config or {}).get(DOMAIN, {}).get(CONF_TRACKERS, [])
         )
         tracker_ids = [conf[CONF_ID] for conf in tracker_configs]
-        tasks: list[Coroutine[Any, Any, Any]] = []
 
+        for conf in tracker_configs:
+            # New config entries and changed existing ones can be processed later and do
+            # not need to delay startup.
+            hass.async_create_background_task(
+                hass.config_entries.flow.async_init(
+                    DOMAIN, context={"source": SOURCE_IMPORT}, data=conf
+                ),
+                "Import YAML config",
+            )
+
+        tasks: list[Coroutine[Any, Any, Any]] = []
         for entry in hass.config_entries.async_entries(DOMAIN):
             if (
                 entry.source != SOURCE_IMPORT
@@ -193,27 +203,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 entry.data[CONF_NAME],
                 f"{DT_DOMAIN}.{obj_id}",
             )
+            # Removing config entries needs to happen before entries get a chance to be
+            # set up.
             tasks.append(hass.config_entries.async_remove(entry.entry_id))
-
-        for conf in tracker_configs:
-            tasks.append(
-                hass.config_entries.flow.async_init(
-                    DOMAIN, context={"source": SOURCE_IMPORT}, data=conf
-                )
-            )
-
-        if not tasks:
-            return
-
-        await asyncio.gather(*tasks)
+        if tasks:
+            await asyncio.gather(*tasks)
 
     async def reload_config(_: ServiceCall) -> None:
         """Reload configuration."""
         await process_config(await async_integration_yaml_config(hass, DOMAIN))
 
-    hass.async_create_background_task(
-        process_config(config), f"Proccess {DOMAIN} YAML configuration"
-    )
+    await process_config(config)
     async_register_admin_service(hass, DOMAIN, SERVICE_RELOAD, reload_config)
 
     return True
