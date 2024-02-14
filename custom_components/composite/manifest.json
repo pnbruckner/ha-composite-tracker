@@ -4,9 +4,9 @@
   "codeowners": ["@pnbruckner"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/master/README.md",
+  "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/3.0.0/README.md",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/pnbruckner/ha-composite-tracker/issues",
   "requirements": [],
-  "version": "3.0.0b5"
+  "version": "3.0.0"
 }
