@@ -5,6 +5,7 @@ SIG_COMPOSITE_SPEED = "composite_speed"
 
 CONF_ALL_STATES = "all_states"
 CONF_DEFAULT_OPTIONS = "default_options"
+CONF_DRIVING_SPEED = "driving_speed"
 CONF_ENTITY = "entity"
 CONF_REQ_MOVEMENT = "require_movement"
 CONF_TIME_AS = "time_as"
@@ -22,3 +23,5 @@ ATTR_DIRECTION = "direction"
 ATTR_ENTITIES = "entities"
 ATTR_LAT = "lat"
 ATTR_LON = "lon"
+
+STATE_DRIVING = "driving"

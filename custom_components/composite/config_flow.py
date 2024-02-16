@@ -22,6 +22,7 @@ from homeassistant.const import (
     CONF_ENTITY_ID,
     CONF_ID,
     CONF_NAME,
+    UnitOfSpeed,
 )
 from homeassistant.core import State, callback
 from homeassistant.data_entry_flow import FlowHandler, FlowResult
@@ -29,14 +30,20 @@ from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     TextSelector,
 )
+from homeassistant.util.unit_conversion import SpeedConverter
+from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from .const import (
     ATTR_ACC,
     ATTR_LAT,
     ATTR_LON,
     CONF_ALL_STATES,
+    CONF_DRIVING_SPEED,
     CONF_ENTITY,
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
@@ -50,7 +57,7 @@ def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
         kw: {k: v for k, v in conf.items() if k in ks}
         for kw, ks in (
             ("data", (CONF_NAME, CONF_ID)),
-            ("options", (CONF_ENTITY_ID, CONF_REQ_MOVEMENT)),
+            ("options", (CONF_ENTITY_ID, CONF_REQ_MOVEMENT, CONF_DRIVING_SPEED)),
         )
     }
 
@@ -62,6 +69,13 @@ class CompositeFlow(FlowHandler):
     def _entries(self) -> list[ConfigEntry]:
         """Get existing config entries."""
         return self.hass.config_entries.async_entries(DOMAIN)
+
+    @cached_property
+    def _speed_uom(self) -> str:
+        """Return speed unit_of_measurement."""
+        if self.hass.config.units is METRIC_SYSTEM:
+            return UnitOfSpeed.KILOMETERS_PER_HOUR
+        return UnitOfSpeed.MILES_PER_HOUR
 
     @property
     @abstractmethod
@@ -81,6 +95,14 @@ class CompositeFlow(FlowHandler):
 
         if user_input is not None:
             self.options[CONF_REQ_MOVEMENT] = user_input[CONF_REQ_MOVEMENT]
+            if CONF_DRIVING_SPEED in user_input:
+                self.options[CONF_DRIVING_SPEED] = SpeedConverter.convert(
+                    user_input[CONF_DRIVING_SPEED],
+                    self._speed_uom,
+                    UnitOfSpeed.METERS_PER_SECOND,
+                )
+            elif CONF_DRIVING_SPEED in self.options:
+                del self.options[CONF_DRIVING_SPEED]
             prv_cfgs = {
                 cfg[CONF_ENTITY]: cfg for cfg in self.options.get(CONF_ENTITY_ID, [])
             }
@@ -125,15 +147,27 @@ class CompositeFlow(FlowHandler):
                     )
                 ),
                 vol.Required(CONF_REQ_MOVEMENT): BooleanSelector(),
+                vol.Optional(CONF_DRIVING_SPEED): NumberSelector(
+                    NumberSelectorConfig(
+                        unit_of_measurement=self._speed_uom,
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
             }
         )
         if CONF_ENTITY_ID in self.options:
+            suggested_values = {
+                CONF_ENTITY_ID: self._entity_ids,
+                CONF_REQ_MOVEMENT: self.options[CONF_REQ_MOVEMENT],
+            }
+            if CONF_DRIVING_SPEED in self.options:
+                suggested_values[CONF_DRIVING_SPEED] = SpeedConverter.convert(
+                    self.options[CONF_DRIVING_SPEED],
+                    UnitOfSpeed.METERS_PER_SECOND,
+                    self._speed_uom,
+                )
             data_schema = self.add_suggested_values_to_schema(
-                data_schema,
-                {
-                    CONF_ENTITY_ID: self._entity_ids,
-                    CONF_REQ_MOVEMENT: self.options[CONF_REQ_MOVEMENT],
-                },
+                data_schema, suggested_values
             )
         return self.async_show_form(
             step_id="options", data_schema=data_schema, errors=errors, last_step=False
@@ -238,6 +272,10 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
 
     async def async_step_import(self, data: dict[str, Any]) -> FlowResult:
         """Import config entry from configuration."""
+        if (driving_speed := data.get(CONF_DRIVING_SPEED)) is not None:
+            data[CONF_DRIVING_SPEED] = SpeedConverter.convert(
+                driving_speed, self._speed_uom, UnitOfSpeed.METERS_PER_SECOND
+            )
         if existing_entry := await self.async_set_unique_id(data[CONF_ID]):
             self.hass.config_entries.async_update_entry(
                 existing_entry, **split_conf(data)  # type: ignore[arg-type]

@@ -27,6 +27,7 @@ from homeassistant.util import slugify
 from .const import (
     CONF_ALL_STATES,
     CONF_DEFAULT_OPTIONS,
+    CONF_DRIVING_SPEED,
     CONF_ENTITY,
     CONF_REQ_MOVEMENT,
     CONF_TIME_AS,
@@ -102,10 +103,13 @@ def _defaults(config: dict) -> dict:
         unsupported_cfgs.add(CONF_TIME_AS)
 
     def_req_mv = config[CONF_DEFAULT_OPTIONS][CONF_REQ_MOVEMENT]
+    def_drv_sp = config[CONF_DEFAULT_OPTIONS].get(CONF_DRIVING_SPEED)
     for tracker in config[CONF_TRACKERS]:
         if tracker.pop(CONF_TIME_AS, None):
             unsupported_cfgs.add(CONF_TIME_AS)
         tracker[CONF_REQ_MOVEMENT] = tracker.get(CONF_REQ_MOVEMENT, def_req_mv)
+        if CONF_DRIVING_SPEED not in tracker and def_drv_sp is not None:
+            tracker[CONF_DRIVING_SPEED] = def_drv_sp
 
     if unsupported_cfgs:
         _LOGGER.warning(
@@ -115,6 +119,7 @@ def _defaults(config: dict) -> dict:
             ", ".join(sorted(unsupported_cfgs)),
         )
 
+    del config[CONF_DEFAULT_OPTIONS]
     return config
 
 
@@ -141,6 +146,7 @@ _TRACKER = {
     vol.Required(CONF_ENTITY_ID): _ENTITIES,
     vol.Optional(CONF_TIME_AS): cv.string,
     vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
+    vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
 }
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -155,6 +161,7 @@ CONFIG_SCHEMA = vol.Schema(
                             vol.Optional(
                                 CONF_REQ_MOVEMENT, default=DEF_REQ_MOVEMENT
                             ): cv.boolean,
+                            vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
                         }
                     ),
                     vol.Required(CONF_TRACKERS, default=list): vol.All(
