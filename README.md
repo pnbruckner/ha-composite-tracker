@@ -6,34 +6,42 @@ It will also create a `sensor` entity that indicates the speed of the device.
 
 Currently any entity that has "GPS" attributes (`gps_accuracy` or `acc`, and either `latitude` & `longitude` or `lat` & `lon`), or any `device_tracker` entity with a `source_type` attribute of `bluetooth`, `bluetooth_le`, `gps` or `router`, or any `binary_sensor` entity, can be used as an input entity.
 
-## Breaking Change
-
-- All time zone related features have been removed. See https://github.com/pnbruckner/ha-entity-tz for an integration that replaces those features, and more.
-- Any tracker entry removed from YAML configuration will be removed from the system.
-- `trackers` in YAML configuration must have at least one entry.
-- The `entity_id` attribute has been changed to `entities`. `entity_id` did not show up in the attribute list in the UI.
-
 ## Installation
-### With HACS
+
+<details>
+<summary>With HACS</summary>
+
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 
 You can use HACS to manage the installation and provide update notifications.
 
-1. Add this repo as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/):
+1. Add this repo as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/).
+   It should then appear as a new integration. Click on it. If necessary, search for "composite".
 
-```text
-https://github.com/pnbruckner/ha-composite-tracker
-```
+   ```text
+   https://github.com/pnbruckner/ha-composite-tracker
+   ```
+   Or use this button:
+   
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=pnbruckner&repository=ha-composite-tracker&category=integration)
 
-2. Install the integration using the appropriate button on the HACS Integrations page. Search for "composite".
 
-### Manual
+1. Download the integration using the appropriate button.
+
+</details>
+
+<details>
+<summary>Manual</summary>
 
 Place a copy of the files from [`custom_components/composite`](custom_components/composite)
 in `<config>/custom_components/composite`,
 where `<config>` is your Home Assistant configuration directory.
 
 >__NOTE__: When downloading, make sure to use the `Raw` button from each file's page.
+
+</details>
+
+After it has been downloaded you will need to restart Home Assistant.
 
 ### Versions
 
@@ -57,6 +65,7 @@ composite:
 
 - **default_options** (*Optional*): Defines default values for corresponding options under **trackers**.
   - **require_movement** (*Optional*): Default is `false`.
+  - **driving_speed** (*Optional*)
 
 - **trackers**: The list of composite trackers to create. For each entry see [Tracker entries](#tracker-entries).
 
@@ -66,6 +75,7 @@ composite:
 - **name**: Friendly name of composite device.
 - **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in a tracker entity ID of `device_tracker.my_name`. The speed sensor's object ID will be the same as for the device tracker, but with a suffix of "`_speed`" added (e.g., `sensor.my_name_speed`.)
 - **require_movement** (*Optional*): `true` or `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
+- **driving_speed** (*Optional*): Defines a driving speed threshold (in MPH or KPH, depending on general unit system setting.) If set, and current speed is at or above this value, and tracker is not in a zone, then the state of the tracker will be set to `driving`.
 
 #### Entity Dictionary
 
@@ -109,8 +119,10 @@ direction | Compass heading of movement direction (if moving.)
 composite:
   default_options:
     require_movement: true
+    driving_speed: 15
   trackers:
     - name: Me
+      driving_speed: 20
       entity_id:
         - entity: device_tracker.platform1_me
           use_picture: true
