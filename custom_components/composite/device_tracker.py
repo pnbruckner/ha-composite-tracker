@@ -195,6 +195,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     """Composite Device Tracker."""
 
     _attr_translation_key = "tracker"
+    _unrecorded_attributes = frozenset({ATTR_ENTITIES, ATTR_ENTITY_PICTURE})
 
     # State vars
     _battery_level: int | None = None
