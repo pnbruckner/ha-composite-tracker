@@ -19,7 +19,6 @@ from homeassistant.components.device_tracker import (
     SourceType,
 )
 from homeassistant.components.device_tracker.config_entry import TrackerEntity
-from homeassistant.components.zone import ENTITY_ID_HOME, async_active_zone
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import (
     ATTR_BATTERY_CHARGING,
@@ -54,12 +53,14 @@ from .const import (
     ATTR_LAT,
     ATTR_LON,
     CONF_ALL_STATES,
+    CONF_DRIVING_SPEED,
     CONF_ENTITY,
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
     MIN_ANGLE_SPEED,
     MIN_SPEED_SECONDS,
     SIG_COMPOSITE_SPEED,
+    STATE_DRIVING,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -206,6 +207,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     _prev_seen: datetime | None = None
     _remove_track_states: Callable[[], None] | None = None
     _req_movement: bool
+    _driving_speed: float | None  # m/s
 
     def __init__(self, entry: ConfigEntry) -> None:
         """Initialize Composite Device Tracker."""
@@ -278,6 +280,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         """Process options from config entry."""
         options = cast(ConfigEntry, self.platform.config_entry).options
         self._req_movement = options[CONF_REQ_MOVEMENT]
+        self._driving_speed = options.get(CONF_DRIVING_SPEED)
         entity_cfgs = {
             entity_cfg[CONF_ENTITY]: entity_cfg
             for entity_cfg in options[CONF_ENTITY_ID]
@@ -393,7 +396,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._attr_extra_state_attributes = {}
         self._prev_seen = None
 
-    async def _entity_updated(self, entity_id: str, new_state: State | None) -> None:
+    async def _entity_updated(  # noqa: C901
+        self, entity_id: str, new_state: State | None
+    ) -> None:
         """Run when an input entity has changed state."""
         if not new_state or new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
             return
@@ -489,21 +494,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             # Don't use new GPS data if it's not complete.
             if not gps or gps_accuracy is None:
                 gps = gps_accuracy = None
-            # Get current GPS data, if any, and determine if it is in
-            # 'zone.home'.
-            cur_state = self.hass.states.get(self.entity_id)
-            try:
-                cur_lat: float = cast(State, cur_state).attributes[ATTR_LATITUDE]
-                cur_lon: float = cast(State, cur_state).attributes[ATTR_LONGITUDE]
-                cur_acc: int = cast(State, cur_state).attributes[ATTR_GPS_ACCURACY]
-                cur_gps_is_home = (
-                    async_active_zone(
-                        self.hass, cur_lat, cur_lon, cur_acc
-                    ).entity_id  # type: ignore[union-attr]
-                    == ENTITY_ID_HOME
-                )
-            except (AttributeError, KeyError):
-                cur_gps_is_home = False
+
+            # Is current state home w/ GPS data?
+            if home_w_gps := self.location_name is None and self.state == STATE_HOME:
+                if self.latitude is None or self.longitude is None:
+                    _LOGGER.warning("%s: Unexpectedly home without GPS data", self.name)
+                    home_w_gps = False
 
             # It's important, for this composite tracker, to avoid the
             # component level code's "stale processing." This can be done
@@ -511,24 +507,21 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             # or 2) provide a location_name (that will be used as the new
             # state.)
 
-            # If router entity's state is 'home' and current GPS data from
-            # composite entity is available and is in 'zone.home',
-            # use it and make source_type gps.
-            if state == STATE_HOME and cur_gps_is_home:
-                gps = cast(GPSType, (cur_lat, cur_lon))
-                gps_accuracy = cur_acc
+            # If router entity's state is 'home' and our current state is 'home' w/ GPS
+            # data, use it and make source_type gps.
+            if state == STATE_HOME and home_w_gps:
+                gps = cast(GPSType, (self.latitude, self.longitude))
+                gps_accuracy = self.location_accuracy
                 source_type = SourceType.GPS
             # Otherwise, if new GPS data is valid (which is unlikely if
             # new state is not 'home'),
             # use it and make source_type gps.
             elif gps:
                 source_type = SourceType.GPS
-            # Otherwise, if new state is 'home' and old state is not 'home'
-            # and no GPS data, then use HA's configured Home location and
-            # make source_type gps.
-            elif state == STATE_HOME and not (
-                cur_state and cur_state.state == STATE_HOME
-            ):
+            # Otherwise, if new state is 'home' and old state is not 'home' w/ GPS data
+            # (i.e., not 'home' or no GPS data), then use HA's configured Home location
+            # and make source_type gps.
+            elif state == STATE_HOME:
                 gps = cast(
                     GPSType,
                     (self.hass.config.latitude, self.hass.config.longitude),
@@ -641,6 +634,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                     angle = round(degrees(atan2(lon - prev_lon, lat - prev_lat)))
                     if angle < 0:
                         angle += 360
+        if (
+            speed is not None
+            and self._driving_speed is not None
+            and speed >= self._driving_speed
+            and self.state == STATE_NOT_HOME
+        ):
+            self._location_name = STATE_DRIVING
         _LOGGER.debug("%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle)
         async_dispatcher_send(
             self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle

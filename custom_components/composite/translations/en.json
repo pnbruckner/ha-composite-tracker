@@ -18,6 +18,7 @@
             "options": {
                 "title": "Composite Options",
                 "data": {
+                    "driving_speed": "Driving speed",
                     "entity_id": "Input entities",
                     "require_movement": "Require movement"
                 }
@@ -38,6 +39,9 @@
     "entity": {
         "device_tracker": {
             "tracker": {
+                "state": {
+                    "driving": "Driving"
+                },
                 "state_attributes": {
                     "battery_charging": {"name": "Battery charging"},
                     "entities": {"name": "Seen entities"},
@@ -68,6 +72,7 @@
             "options": {
                 "title": "Composite Options",
                 "data": {
+                    "driving_speed": "Driving speed",
                     "entity_id": "Input entities",
                     "require_movement": "Require movement"
                 }
