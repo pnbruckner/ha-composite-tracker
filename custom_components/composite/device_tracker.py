@@ -396,7 +396,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._attr_extra_state_attributes = {}
         self._prev_seen = None
 
-    async def _entity_updated(self, entity_id: str, new_state: State | None) -> None:
+    async def _entity_updated(  # noqa: C901
+        self, entity_id: str, new_state: State | None
+    ) -> None:
         """Run when an input entity has changed state."""
         if not new_state or new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
             return
@@ -494,7 +496,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 gps = gps_accuracy = None
 
             # Is current state home w/ GPS data?
-            cur_gps_is_home = self.location_name is None and self.state == STATE_HOME
+            if home_w_gps := self.location_name is None and self.state == STATE_HOME:
+                if self.latitude is None or self.longitude is None:
+                    _LOGGER.warning("%s: Unexpectedly home without GPS data", self.name)
+                    home_w_gps = False
 
             # It's important, for this composite tracker, to avoid the
             # component level code's "stale processing." This can be done
@@ -504,7 +509,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
             # If router entity's state is 'home' and our current state is 'home' w/ GPS
             # data, use it and make source_type gps.
-            if state == STATE_HOME and cur_gps_is_home:
+            if state == STATE_HOME and home_w_gps:
                 gps = cast(GPSType, (self.latitude, self.longitude))
                 gps_accuracy = self.location_accuracy
                 source_type = SourceType.GPS
