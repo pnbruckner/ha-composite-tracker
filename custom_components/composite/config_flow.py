@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import abstractmethod
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import voluptuous as vol
 
@@ -54,6 +54,7 @@ from .const import (
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
     DOMAIN,
+    PICTURE_SUFFIXES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -82,6 +83,41 @@ class CompositeFlow(FlowHandler):
     def _local_dir(self) -> Path:
         """Return real path to "/local" directory."""
         return Path(self.hass.config.path("www"))
+
+    @cached_property
+    def _local_files(self) -> list[str]:
+        """Return a list of files in "/local" and subdirectories."""
+        if not (local_dir := self._local_dir).is_dir():
+            _LOGGER.debug("/local directory (%s) does not exist", local_dir)
+            return []
+
+        def on_error(err: OSError) -> None:
+            """Print error to log."""
+            _LOGGER.warning(
+                "Error while getting file list in %s: %s: (%i) %s",
+                local_dir,
+                err.filename,
+                err.errno,
+                err.strerror,
+            )
+
+        try:
+            # mypy doesn't know about walk, hence the ignore comment.
+            walker = local_dir.walk(on_error=on_error)  # type: ignore[attr-defined]
+        except AttributeError:
+            _LOGGER.debug("Cannot list files in local directory; requires Python 3.12")
+            return []
+
+        local_files: list[str] = []
+        for root, _, filenames in walker:
+            local_files.extend(
+                [
+                    str((root / filename).relative_to(local_dir))
+                    for filename in filenames
+                    if filename.rsplit(".", 1)[-1].lower() in PICTURE_SUFFIXES
+                ]
+            )
+        return local_files
 
     @cached_property
     def _speed_uom(self) -> str:
@@ -186,25 +222,59 @@ class CompositeFlow(FlowHandler):
             step_id="options", data_schema=data_schema, errors=errors, last_step=False
         )
 
+    @property
+    def _cur_entity_picture(self) -> tuple[str | None, str | None]:
+        """Return current entity picture source.
+
+        Returns: (entity_id, local_file)
+
+        local_file is relative to "/local".
+        """
+        entity_id = None
+        for cfg in self.options[CONF_ENTITY_ID]:
+            if cfg[CONF_USE_PICTURE]:
+                entity_id = cfg[CONF_ENTITY]
+                break
+        if local_file := cast(str | None, self.options.get(CONF_ENTITY_PICTURE)):
+            local_file = local_file.removeprefix("/local/")
+        return entity_id, local_file
+
+    def _set_entity_picture(
+        self, *, entity_id: str | None = None, local_file: str | None = None
+    ) -> None:
+        """Set composite's entity picture source.
+
+        local_file is relative to "/local".
+        """
+        for cfg in self.options[CONF_ENTITY_ID]:
+            cfg[CONF_USE_PICTURE] = cfg[CONF_ENTITY] == entity_id
+        if local_file:
+            self.options[CONF_ENTITY_PICTURE] = f"/local/{local_file}"
+        elif CONF_ENTITY_PICTURE in self.options:
+            del self.options[CONF_ENTITY_PICTURE]
+
     async def async_step_entity_picture_menu(
         self, _: dict[str, Any] | None = None
     ) -> FlowResult:
         """Specify where to get composite's picture from."""
+        entity_id, local_file = self._cur_entity_picture
+        cur_source: Path | str | None
+        if local_file:
+            cur_source = self._local_dir / local_file
+        else:
+            cur_source = entity_id
+
+        menu_options = ["all_states", "use_picture"]
+        if self._local_files:
+            menu_options.insert(1, "local_file")
+        if cur_source:
+            menu_options.append("no_ep")
+
         return self.async_show_menu(
             step_id="entity_picture_menu",
-            menu_options=["use_picture", "local_file", "no_ep"],
+            menu_options=menu_options,
+            description_placeholders={"cur_source": str(cur_source)},
         )
-
-    def _set_entity_picture(
-        self, *, entity_id: str | None = None, local_file_path: str | None = None
-    ) -> None:
-        """Set composite's entity picture source."""
-        for cfg in self.options[CONF_ENTITY_ID]:
-            cfg[CONF_USE_PICTURE] = cfg[CONF_ENTITY] == entity_id
-        if local_file_path:
-            self.options[CONF_ENTITY_PICTURE] = f"/local/{local_file_path}"
-        elif CONF_ENTITY_PICTURE in self.options:
-            del self.options[CONF_ENTITY_PICTURE]
 
     async def async_step_use_picture(
         self, user_input: dict[str, Any] | None = None
@@ -240,22 +310,13 @@ class CompositeFlow(FlowHandler):
     ) -> FlowResult:
         """Specify a local file for composite's picture."""
         if user_input is not None:
-            self._set_entity_picture(
-                local_file_path=user_input.get(CONF_ENTITY_PICTURE)
-            )
+            self._set_entity_picture(local_file=user_input.get(CONF_ENTITY_PICTURE))
             return await self.async_step_all_states()
 
-        local_files: list[str] = []
-        for root, _, filenames in self._local_dir.walk():  # type: ignore[attr-defined]
-            local_files.extend(
-                [
-                    str((root / filename).relative_to(self._local_dir))
-                    for filename in filenames
-                ]
-            )
-        if local_file := self.options.get(CONF_ENTITY_PICTURE):
-            if local_file not in local_files:
-                local_files.append(local_file)
+        local_files = self._local_files
+        _, local_file = self._cur_entity_picture
+        if local_file and local_file not in local_files:
+            local_files.append(local_file)
         data_schema = vol.Schema(
             {
                 vol.Optional(CONF_ENTITY_PICTURE): SelectSelector(
