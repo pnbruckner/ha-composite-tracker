@@ -11,11 +11,12 @@
             },
             "entity_picture_menu": {
                 "title": "Composite Entity Picture",
-                "description": "Choose source of composite's entity picture.",
+                "description": "Choose source of composite's entity picture.\n\nCurrently: {cur_source}",
                 "menu_options": {
-                    "local_file": "Local file",
-                    "no_ep": "Continue without an entity picture",
-                    "use_picture": "Input entity's picture"
+                    "all_states": "Keep current setting",
+                    "local_file": "Select local file",
+                    "no_ep": "Do not use an entity picture",
+                    "use_picture": "Use an input entity's picture"
                 }
             },
             "local_file": {
@@ -87,11 +88,12 @@
             },
             "entity_picture_menu": {
                 "title": "Composite Entity Picture",
-                "description": "Choose source of composite's entity picture.",
+                "description": "Choose source of composite's entity picture.\n\nCurrently: {cur_source}",
                 "menu_options": {
-                    "local_file": "Local file",
-                    "no_ep": "Continue without an entity picture",
-                    "use_picture": "Input entity's picture"
+                    "all_states": "Keep current setting",
+                    "local_file": "Select local file",
+                    "no_ep": "Do not use an entity picture",
+                    "use_picture": "Use an input entity's picture"
                 }
             },
             "local_file": {
