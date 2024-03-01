@@ -2,6 +2,7 @@
 DOMAIN = "composite"
 
 PICTURE_SUFFIXES = ("bmp", "jpg", "png")
+MIME_TO_SUFFIX = {"image/bmp": "bmp", "image/jpeg": "jpg", "image/png": "png"}
 
 DEF_REQ_MOVEMENT = False
 

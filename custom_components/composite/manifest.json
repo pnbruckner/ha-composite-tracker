@@ -7,6 +7,6 @@
   "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/3.2.0/README.md",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/pnbruckner/ha-composite-tracker/issues",
-  "requirements": [],
+  "requirements": ["filetype==1.2.0"],
   "version": "3.2.0"
 }

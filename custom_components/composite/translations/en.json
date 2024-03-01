@@ -9,22 +9,41 @@
                     "entity": "Entity"
                 }
             },
-            "entity_picture_menu": {
-                "title": "Composite Entity Picture",
-                "description": "Choose source of composite's entity picture.\n\nCurrently: {cur_source}",
-                "menu_options": {
-                    "all_states": "Keep current setting",
-                    "local_file": "Select local file",
-                    "no_ep": "Do not use an entity picture",
-                    "use_picture": "Use an input entity's picture"
+            "ep_input_entity": {
+                "title": "Picture Entity",
+                "description": "Choose entity whose picture will be used for the composite.\nIt may be none.",
+                "data": {
+                    "entity": "Entity"
                 }
             },
-            "local_file": {
+            "ep_local_file": {
                 "title": "Local Picture File",
                 "description": "Choose local file to be used for the composite.\nIt may be none.",
                 "data": {
                     "entity_picture": "Local file"
                 }
+            },
+            "ep_menu": {
+                "title": "Composite Entity Picture",
+                "description": "Choose source of composite's entity picture.\n\nCurrently: {cur_source}",
+                "menu_options": {
+                    "all_states": "Keep current setting",
+                    "ep_local_file": "Select local file",
+                    "ep_input_entity": "Use an input entity's picture",
+                    "ep_none": "Do not use an entity picture",
+                    "ep_upload_file": "Upload a file"
+                }
+            },
+            "ep_upload_file": {
+                "title": "Upload Picture File",
+                "description": "Upload a file to be used for the composite.\nIt may be none.",
+                "data": {
+                    "entity_picture": "Picture file"
+                }
+            },
+            "ep_warn": {
+                "title": "File Upload Directory Created",
+                "description": "/local directory ({local_dir}) was created.\nHome Assistant may need to be restarted for uploaded files to be usable."
             },
             "name": {
                 "title": "Name",
@@ -38,13 +57,6 @@
                     "driving_speed": "Driving speed",
                     "entity_id": "Input entities",
                     "require_movement": "Require movement"
-                }
-            },
-            "use_picture": {
-                "title": "Picture Entity",
-                "description": "Choose entity whose picture will be used for the composite.\nIt may be none.",
-                "data": {
-                    "entity": "Entity"
                 }
             }
         },
@@ -86,22 +98,41 @@
                     "entity": "Entity"
                 }
             },
-            "entity_picture_menu": {
-                "title": "Composite Entity Picture",
-                "description": "Choose source of composite's entity picture.\n\nCurrently: {cur_source}",
-                "menu_options": {
-                    "all_states": "Keep current setting",
-                    "local_file": "Select local file",
-                    "no_ep": "Do not use an entity picture",
-                    "use_picture": "Use an input entity's picture"
+            "ep_input_entity": {
+                "title": "Picture Entity",
+                "description": "Choose entity whose picture will be used for the composite.\nIt may be none.",
+                "data": {
+                    "entity": "Entity"
                 }
             },
-            "local_file": {
+            "ep_local_file": {
                 "title": "Local Picture File",
                 "description": "Choose local file to be used for the composite.\nIt may be none.",
                 "data": {
                     "entity_picture": "Local file"
                 }
+            },
+            "ep_menu": {
+                "title": "Composite Entity Picture",
+                "description": "Choose source of composite's entity picture.\n\nCurrently: {cur_source}",
+                "menu_options": {
+                    "all_states": "Keep current setting",
+                    "ep_local_file": "Select local file",
+                    "ep_input_entity": "Use an input entity's picture",
+                    "ep_none": "Do not use an entity picture",
+                    "ep_upload_file": "Upload a file"
+                }
+            },
+            "ep_upload_file": {
+                "title": "Upload Picture File",
+                "description": "Upload a file to be used for the composite.\nIt may be none.",
+                "data": {
+                    "entity_picture": "Picture file"
+                }
+            },
+            "ep_warn": {
+                "title": "File Upload Directory Created",
+                "description": "/local directory ({local_dir}) was created.\nHome Assistant may need to be restarted for uploaded files to be usable."
             },
             "options": {
                 "title": "Composite Options",
@@ -109,13 +140,6 @@
                     "driving_speed": "Driving speed",
                     "entity_id": "Input entities",
                     "require_movement": "Require movement"
-                }
-            },
-            "use_picture": {
-                "title": "Picture Entity",
-                "description": "Choose entity whose picture will be used for the composite.\nIt may be none.",
-                "data": {
-                    "entity": "Entity"
                 }
             }
         },
