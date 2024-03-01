@@ -55,6 +55,7 @@ from .const import (
     CONF_ALL_STATES,
     CONF_DRIVING_SPEED,
     CONF_ENTITY,
+    CONF_ENTITY_PICTURE,
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
     MIN_ANGLE_SPEED,
@@ -319,6 +320,11 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         for entity_id in cfg_entity_ids:
             await self._entity_updated(entity_id, self.hass.states.get(entity_id))
+
+        if local_file := options.get(CONF_ENTITY_PICTURE):
+            self._attr_entity_picture = local_file
+        elif not any(entity.use_picture for entity in self._entities.values()):
+            self._attr_entity_picture = None
 
         async def state_listener(event: Event) -> None:
             """Process input entity state update."""

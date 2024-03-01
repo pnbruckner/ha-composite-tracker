@@ -9,6 +9,22 @@
                     "entity": "Entity"
                 }
             },
+            "entity_picture_menu": {
+                "title": "Composite Entity Picture",
+                "description": "Choose source of composite's entity picture.",
+                "menu_options": {
+                    "local_file": "Local file",
+                    "no_ep": "Continue without an entity picture",
+                    "use_picture": "Input entity's picture"
+                }
+            },
+            "local_file": {
+                "title": "Local Picture File",
+                "description": "Choose local file to be used for the composite.\nIt may be none.",
+                "data": {
+                    "entity_picture": "Local file"
+                }
+            },
             "name": {
                 "title": "Name",
                 "data": {
@@ -67,6 +83,22 @@
                 "description": "Select entities for which all states should be used.\nNote that this only applies to entities whose source type is not GPS.",
                 "data": {
                     "entity": "Entity"
+                }
+            },
+            "entity_picture_menu": {
+                "title": "Composite Entity Picture",
+                "description": "Choose source of composite's entity picture.",
+                "menu_options": {
+                    "local_file": "Local file",
+                    "no_ep": "Continue without an entity picture",
+                    "use_picture": "Input entity's picture"
+                }
+            },
+            "local_file": {
+                "title": "Local Picture File",
+                "description": "Choose local file to be used for the composite.\nIt may be none.",
+                "data": {
+                    "entity_picture": "Local file"
                 }
             },
             "options": {
