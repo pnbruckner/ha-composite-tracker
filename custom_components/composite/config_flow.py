@@ -72,7 +72,15 @@ def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
         kw: {k: v for k, v in conf.items() if k in ks}
         for kw, ks in (
             ("data", (CONF_NAME, CONF_ID)),
-            ("options", (CONF_ENTITY_ID, CONF_REQ_MOVEMENT, CONF_DRIVING_SPEED)),
+            (
+                "options",
+                (
+                    CONF_ENTITY_ID,
+                    CONF_REQ_MOVEMENT,
+                    CONF_DRIVING_SPEED,
+                    CONF_ENTITY_PICTURE,
+                ),
+            ),
         )
     }
 
