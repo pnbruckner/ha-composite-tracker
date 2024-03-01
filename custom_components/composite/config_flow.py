@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+import logging
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -33,6 +35,9 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
 )
 from homeassistant.util.unit_conversion import SpeedConverter
@@ -45,10 +50,13 @@ from .const import (
     CONF_ALL_STATES,
     CONF_DRIVING_SPEED,
     CONF_ENTITY,
+    CONF_ENTITY_PICTURE,
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
     DOMAIN,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -69,6 +77,11 @@ class CompositeFlow(FlowHandler):
     def _entries(self) -> list[ConfigEntry]:
         """Get existing config entries."""
         return self.hass.config_entries.async_entries(DOMAIN)
+
+    @cached_property
+    def _local_dir(self) -> Path:
+        """Return real path to "/local" directory."""
+        return Path(self.hass.config.path("www"))
 
     @cached_property
     def _speed_uom(self) -> str:
@@ -120,7 +133,7 @@ class CompositeFlow(FlowHandler):
                 )
             self.options[CONF_ENTITY_ID] = new_cfgs
             if new_cfgs:
-                return await self.async_step_use_picture()
+                return await self.async_step_entity_picture_menu()
             errors[CONF_ENTITY_ID] = "at_least_one_entity"
 
         def entity_filter(state: State) -> bool:
@@ -173,20 +186,39 @@ class CompositeFlow(FlowHandler):
             step_id="options", data_schema=data_schema, errors=errors, last_step=False
         )
 
+    async def async_step_entity_picture_menu(
+        self, _: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Specify where to get composite's picture from."""
+        return self.async_show_menu(
+            step_id="entity_picture_menu",
+            menu_options=["use_picture", "local_file", "no_ep"],
+        )
+
+    def _set_entity_picture(
+        self, *, entity_id: str | None = None, local_file_path: str | None = None
+    ) -> None:
+        """Set composite's entity picture source."""
+        for cfg in self.options[CONF_ENTITY_ID]:
+            cfg[CONF_USE_PICTURE] = cfg[CONF_ENTITY] == entity_id
+        if local_file_path:
+            self.options[CONF_ENTITY_PICTURE] = f"/local/{local_file_path}"
+        elif CONF_ENTITY_PICTURE in self.options:
+            del self.options[CONF_ENTITY_PICTURE]
+
     async def async_step_use_picture(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Specify which input to get composite's picture from."""
         if user_input is not None:
-            entity_id = user_input.get(CONF_ENTITY)
-            for cfg in self.options[CONF_ENTITY_ID]:
-                cfg[CONF_USE_PICTURE] = cfg[CONF_ENTITY] == entity_id
+            self._set_entity_picture(entity_id=user_input.get(CONF_ENTITY))
             return await self.async_step_all_states()
 
+        include_entities = self._entity_ids
         data_schema = vol.Schema(
             {
                 vol.Optional(CONF_ENTITY): EntitySelector(
-                    EntitySelectorConfig(include_entities=self._entity_ids)
+                    EntitySelectorConfig(include_entities=include_entities)
                 )
             }
         )
@@ -202,6 +234,50 @@ class CompositeFlow(FlowHandler):
         return self.async_show_form(
             step_id="use_picture", data_schema=data_schema, last_step=False
         )
+
+    async def async_step_local_file(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Specify a local file for composite's picture."""
+        if user_input is not None:
+            self._set_entity_picture(
+                local_file_path=user_input.get(CONF_ENTITY_PICTURE)
+            )
+            return await self.async_step_all_states()
+
+        local_files: list[str] = []
+        for root, _, filenames in self._local_dir.walk():  # type: ignore[attr-defined]
+            local_files.extend(
+                [
+                    str((root / filename).relative_to(self._local_dir))
+                    for filename in filenames
+                ]
+            )
+        if local_file := self.options.get(CONF_ENTITY_PICTURE):
+            if local_file not in local_files:
+                local_files.append(local_file)
+        data_schema = vol.Schema(
+            {
+                vol.Optional(CONF_ENTITY_PICTURE): SelectSelector(
+                    SelectSelectorConfig(
+                        options=local_files,
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
+            }
+        )
+        if local_file:
+            data_schema = self.add_suggested_values_to_schema(
+                data_schema, {CONF_ENTITY_PICTURE: local_file}
+            )
+        return self.async_show_form(
+            step_id="local_file", data_schema=data_schema, last_step=False
+        )
+
+    async def async_step_no_ep(self, _: dict[str, Any] | None = None) -> FlowResult:
+        """Set composite's entity picture to none."""
+        self._set_entity_picture()
+        return await self.async_step_all_states()
 
     async def async_step_all_states(
         self, user_input: dict[str, Any] | None = None
