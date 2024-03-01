@@ -4,13 +4,16 @@ from __future__ import annotations
 from abc import abstractmethod
 import logging
 from pathlib import Path
+import shutil
 from typing import Any, cast
 
+import filetype
 import voluptuous as vol
 
 from homeassistant.backports.functools import cached_property
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import DOMAIN as DT_DOMAIN
+from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.config_entries import (
     SOURCE_IMPORT,
     ConfigEntry,
@@ -32,6 +35,8 @@ from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
+    FileSelector,
+    FileSelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -54,6 +59,7 @@ from .const import (
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
     DOMAIN,
+    MIME_TO_SUFFIX,
     PICTURE_SUFFIXES,
 )
 
@@ -83,6 +89,11 @@ class CompositeFlow(FlowHandler):
     def _local_dir(self) -> Path:
         """Return real path to "/local" directory."""
         return Path(self.hass.config.path("www"))
+
+    @cached_property
+    def _uploaded_dir(self) -> Path:
+        """Return real path to "/local/uploaded" directory."""
+        return self._local_dir / "uploaded"
 
     @cached_property
     def _local_files(self) -> list[str]:
@@ -136,6 +147,56 @@ class CompositeFlow(FlowHandler):
         """Get currently configured entity IDs."""
         return [cfg[CONF_ENTITY] for cfg in self.options.get(CONF_ENTITY_ID, [])]
 
+    @property
+    def _cur_entity_picture(self) -> tuple[str | None, str | None]:
+        """Return current entity picture source.
+
+        Returns: (entity_id, local_file)
+
+        local_file is relative to "/local".
+        """
+        entity_id = None
+        for cfg in self.options[CONF_ENTITY_ID]:
+            if cfg[CONF_USE_PICTURE]:
+                entity_id = cfg[CONF_ENTITY]
+                break
+        if local_file := cast(str | None, self.options.get(CONF_ENTITY_PICTURE)):
+            local_file = local_file.removeprefix("/local/")
+        return entity_id, local_file
+
+    def _set_entity_picture(
+        self, *, entity_id: str | None = None, local_file: str | None = None
+    ) -> None:
+        """Set composite's entity picture source.
+
+        local_file is relative to "/local".
+        """
+        for cfg in self.options[CONF_ENTITY_ID]:
+            cfg[CONF_USE_PICTURE] = cfg[CONF_ENTITY] == entity_id
+        if local_file:
+            self.options[CONF_ENTITY_PICTURE] = f"/local/{local_file}"
+        elif CONF_ENTITY_PICTURE in self.options:
+            del self.options[CONF_ENTITY_PICTURE]
+
+    def _save_uploaded_file(self, uploaded_file_id: str) -> str:
+        """Save uploaded file.
+
+        Must be called in an executor.
+
+        Returns name of file relative to "/local".
+        """
+        with process_uploaded_file(self.hass, uploaded_file_id) as uf_path:
+            ud = self._uploaded_dir
+            ud.mkdir(parents=True, exist_ok=True)
+            suffix = MIME_TO_SUFFIX[filetype.guess_mime(uf_path)]
+            fn = ud / f"x.{suffix}"
+            idx = 0
+            # mypy doesn't know about follow_symlinks parameter.
+            while (uf := fn.with_stem(f"image{idx:03d}")).exists(follow_symlinks=False):  # type: ignore[call-arg]
+                idx += 1
+            shutil.move(uf_path, uf)
+            return str(uf.relative_to(self._local_dir))
+
     async def async_step_options(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -169,7 +230,7 @@ class CompositeFlow(FlowHandler):
                 )
             self.options[CONF_ENTITY_ID] = new_cfgs
             if new_cfgs:
-                return await self.async_step_entity_picture_menu()
+                return await self.async_step_ep_menu()
             errors[CONF_ENTITY_ID] = "at_least_one_entity"
 
         def entity_filter(state: State) -> bool:
@@ -222,40 +283,7 @@ class CompositeFlow(FlowHandler):
             step_id="options", data_schema=data_schema, errors=errors, last_step=False
         )
 
-    @property
-    def _cur_entity_picture(self) -> tuple[str | None, str | None]:
-        """Return current entity picture source.
-
-        Returns: (entity_id, local_file)
-
-        local_file is relative to "/local".
-        """
-        entity_id = None
-        for cfg in self.options[CONF_ENTITY_ID]:
-            if cfg[CONF_USE_PICTURE]:
-                entity_id = cfg[CONF_ENTITY]
-                break
-        if local_file := cast(str | None, self.options.get(CONF_ENTITY_PICTURE)):
-            local_file = local_file.removeprefix("/local/")
-        return entity_id, local_file
-
-    def _set_entity_picture(
-        self, *, entity_id: str | None = None, local_file: str | None = None
-    ) -> None:
-        """Set composite's entity picture source.
-
-        local_file is relative to "/local".
-        """
-        for cfg in self.options[CONF_ENTITY_ID]:
-            cfg[CONF_USE_PICTURE] = cfg[CONF_ENTITY] == entity_id
-        if local_file:
-            self.options[CONF_ENTITY_PICTURE] = f"/local/{local_file}"
-        elif CONF_ENTITY_PICTURE in self.options:
-            del self.options[CONF_ENTITY_PICTURE]
-
-    async def async_step_entity_picture_menu(
-        self, _: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_ep_menu(self, _: dict[str, Any] | None = None) -> FlowResult:
         """Specify where to get composite's picture from."""
         entity_id, local_file = self._cur_entity_picture
         cur_source: Path | str | None
@@ -264,19 +292,19 @@ class CompositeFlow(FlowHandler):
         else:
             cur_source = entity_id
 
-        menu_options = ["all_states", "use_picture"]
+        menu_options = ["all_states", "ep_upload_file", "ep_input_entity"]
         if self._local_files:
-            menu_options.insert(1, "local_file")
+            menu_options.insert(1, "ep_local_file")
         if cur_source:
-            menu_options.append("no_ep")
+            menu_options.append("ep_none")
 
         return self.async_show_menu(
-            step_id="entity_picture_menu",
+            step_id="ep_menu",
             menu_options=menu_options,
             description_placeholders={"cur_source": str(cur_source)},
         )
 
-    async def async_step_use_picture(
+    async def async_step_ep_input_entity(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Specify which input to get composite's picture from."""
@@ -302,10 +330,10 @@ class CompositeFlow(FlowHandler):
                 data_schema, {CONF_ENTITY: picture_entity_id}
             )
         return self.async_show_form(
-            step_id="use_picture", data_schema=data_schema, last_step=False
+            step_id="ep_input_entity", data_schema=data_schema, last_step=False
         )
 
-    async def async_step_local_file(
+    async def async_step_ep_local_file(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Specify a local file for composite's picture."""
@@ -322,7 +350,7 @@ class CompositeFlow(FlowHandler):
                 vol.Optional(CONF_ENTITY_PICTURE): SelectSelector(
                     SelectSelectorConfig(
                         options=local_files,
-                        mode=SelectSelectorMode.LIST,
+                        mode=SelectSelectorMode.DROPDOWN,
                     )
                 )
             }
@@ -332,10 +360,53 @@ class CompositeFlow(FlowHandler):
                 data_schema, {CONF_ENTITY_PICTURE: local_file}
             )
         return self.async_show_form(
-            step_id="local_file", data_schema=data_schema, last_step=False
+            step_id="ep_local_file", data_schema=data_schema, last_step=False
         )
 
-    async def async_step_no_ep(self, _: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_ep_upload_file(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Upload a file for composite's picture."""
+        if user_input is not None:
+            if (uploaded_file_id := user_input.get(CONF_ENTITY_PICTURE)) is None:
+                self._set_entity_picture()
+                return await self.async_step_all_states()
+
+            local_dir_exists = self._local_dir.is_dir()
+            local_file = await self.hass.async_add_executor_job(
+                self._save_uploaded_file, uploaded_file_id
+            )
+            self._set_entity_picture(local_file=local_file)
+            if local_dir_exists:
+                return await self.async_step_all_states()
+            return await self.async_step_ep_warn()
+
+        accept = ", ".join(f".{ext}" for ext in PICTURE_SUFFIXES)
+        data_schema = vol.Schema(
+            {
+                vol.Optional(CONF_ENTITY_PICTURE): FileSelector(
+                    FileSelectorConfig(accept=accept)
+                )
+            }
+        )
+        return self.async_show_form(
+            step_id="ep_upload_file", data_schema=data_schema, last_step=False
+        )
+
+    async def async_step_ep_warn(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Warn that since "/local" was created system might need to be restarted."""
+        if user_input is not None:
+            return await self.async_step_all_states()
+
+        return self.async_show_form(
+            step_id="ep_warn",
+            description_placeholders={"local_dir": str(self._local_dir)},
+            last_step=False,
+        )
+
+    async def async_step_ep_none(self, _: dict[str, Any] | None = None) -> FlowResult:
         """Set composite's entity picture to none."""
         self._set_entity_picture()
         return await self.async_step_all_states()
