@@ -47,9 +47,18 @@ After it has been downloaded you will need to restart Home Assistant.
 
 This custom integration supports HomeAssistant versions 2023.7 or newer.
 
-## Configuration variables
+## Configuration
 
-Composite entities can be created via the UI on the Integrations page or by YAML entries. This section describes the latter.
+Composite entities can be created via the UI on the Integrations page or by YAML entries.
+
+To create a Composite entity via the UI you can use this My Button:
+
+[![add integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start?domain=composite)
+
+Alternatively, go to Settings -> Devices & services and click the **`+ ADD INTEGRATION`** button.
+Find or search for "Composite", click on it, then follow the prompts.
+
+The remainder of this section describes YAML configuration.
 Here is an example YAML configuration:
 
 ```yaml
@@ -76,12 +85,13 @@ composite:
 - **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in a tracker entity ID of `device_tracker.my_name`. The speed sensor's object ID will be the same as for the device tracker, but with a suffix of "`_speed`" added (e.g., `sensor.my_name_speed`.)
 - **require_movement** (*Optional*): `true` or `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
 - **driving_speed** (*Optional*): Defines a driving speed threshold (in MPH or KPH, depending on general unit system setting.) If set, and current speed is at or above this value, and tracker is not in a zone, then the state of the tracker will be set to `driving`.
+- **entity_picture** (*Optional*): Specifies image to use for entity. Can be an URL or a file in "/local". Note that /local is used by the frontend to access files in `<config_path>/www` (which is typically `/config/www`.) You can specify file names with or without the "/local" prefix. If this option is used, then `use_picture` cannot be used.
 
 #### Entity Dictionary
 
 - **entity**: Entity ID of an entity to watch.
 - **all_states** (*Optional*): `true` or `false`. Default is `false`. If `true`, use all states of the entity. If `false`, only use the "Home" state. NOTE: This option is ignored for entities whose `source_type` is `gps` for which all states are always used.
-- **use_picture** (*Optional*): `true` or `false`. Default is `false`. If `true`, use the entity's picture for the composite. Can only be `true` for at most one of the entities.
+- **use_picture** (*Optional*): `true` or `false`. Default is `false`. If `true`, use the entity's picture for the composite. Can only be `true` for at most one of the entities. If `entity_picture` is used, then this option cannot be used.
 
 ## Watched device notes
 
@@ -133,7 +143,6 @@ composite:
     - name: Better Half
       id: wife
       require_movement: false
-      entity_id:
-        entity: device_tracker.platform_wife
-        use_picture: true
+      entity_picture: /local/wife.jpg
+      entity_id: device_tracker.platform_wife
 ```
