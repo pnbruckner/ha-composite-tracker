@@ -49,7 +49,11 @@ from homeassistant.util.location import distance
 
 from .const import (
     ATTR_ACC,
+    ATTR_CHARGING,
     ATTR_ENTITIES,
+    ATTR_LAST_ENTITY_ID,
+    ATTR_LAST_SEEN,
+    ATTR_LAST_TIMESTAMP,
     ATTR_LAT,
     ATTR_LON,
     CONF_ALL_STATES,
@@ -70,10 +74,6 @@ _LOGGER = logging.getLogger(__name__)
 # async_request_call, atomic.
 PARALLEL_UPDATES = 1
 
-ATTR_CHARGING = "charging"
-ATTR_LAST_SEEN = "last_seen"
-ATTR_LAST_TIMESTAMP = "last_timestamp"
-ATTR_LAST_ENTITY_ID = "last_entity_id"
 
 _RESTORE_EXTRA_ATTRS = (
     ATTR_ENTITY_ID,

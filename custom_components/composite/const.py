@@ -23,8 +23,12 @@ CONF_USE_PICTURE = "use_picture"
 
 ATTR_ACC = "acc"
 ATTR_ANGLE = "angle"
+ATTR_CHARGING = "charging"
 ATTR_DIRECTION = "direction"
 ATTR_ENTITIES = "entities"
+ATTR_LAST_SEEN = "last_seen"
+ATTR_LAST_TIMESTAMP = "last_timestamp"
+ATTR_LAST_ENTITY_ID = "last_entity_id"
 ATTR_LAT = "lat"
 ATTR_LON = "lon"
 
