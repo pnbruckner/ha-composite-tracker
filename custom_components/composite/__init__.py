@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Coroutine
+from contextlib import suppress
 import logging
+from pathlib import Path
 from typing import Any, cast
 
 import voluptuous as vol
@@ -68,11 +70,25 @@ def _entities(entities: list[str | dict]) -> list[dict]:
     return result
 
 
-def _entity_picture(file: str) -> str:
-    """Determine if entity picture file exists in "/local"."""
-    local_file = file.removeprefix("/local/")
-    cv.isfile(async_get_hass().config.path("www", local_file))
-    return f"/local/{local_file}"
+def _entity_picture(entity_picture: str) -> str:
+    """Validate entity picture.
+
+    Can be an URL or a file in "/local".
+
+    file can be "/local/file" or just "file"
+
+    Returns URL or "/local/file"
+    """
+    with suppress(vol.Invalid):
+        return cv.url(entity_picture)
+
+    local_dir = Path("/local")
+    local_file = Path(entity_picture)
+    with suppress(ValueError):
+        local_file = local_file.relative_to(local_dir)
+    if not (Path(async_get_hass().config.path("www")) / local_file).is_file():
+        raise vol.Invalid(f"{entity_picture} does not exist")
+    return str(local_dir / local_file)
 
 
 def _trackers(
@@ -165,7 +181,7 @@ _TRACKER = {
     vol.Optional(CONF_TIME_AS): cv.string,
     vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
     vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
-    vol.Optional(CONF_ENTITY_PICTURE): _entity_picture,
+    vol.Optional(CONF_ENTITY_PICTURE): vol.All(cv.string, _entity_picture),
 }
 CONFIG_SCHEMA = vol.Schema(
     {
