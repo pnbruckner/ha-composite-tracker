@@ -116,6 +116,8 @@ class CompositeSensor(SensorEntity):
         self, hass: HomeAssistant, entry: ConfigEntry
     ) -> None:
         """Run when the config entry has been updated."""
+        if entry.source == SOURCE_IMPORT:
+            return
         if (new_name := entry.title) != self._attr_translation_placeholders["name"]:
             # Need to change _attr_translation_placeholders (instead of the dict to
             # which it refers) to clear the cached_property in new HA versions.
