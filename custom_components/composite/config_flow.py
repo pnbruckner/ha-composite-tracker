@@ -110,33 +110,15 @@ class CompositeFlow(FlowHandler):
             _LOGGER.debug("/local directory (%s) does not exist", local_dir)
             return []
 
-        def on_error(err: OSError) -> None:
-            """Print error to log."""
-            _LOGGER.warning(
-                "Error while getting file list in %s: %s: (%i) %s",
-                local_dir,
-                err.filename,
-                err.errno,
-                err.strerror,
-            )
-
-        try:
-            # mypy doesn't know about walk, hence the ignore comment.
-            walker = local_dir.walk(on_error=on_error)  # type: ignore[attr-defined]
-        except AttributeError:
-            _LOGGER.debug("Cannot list files in local directory; requires Python 3.12")
-            return []
-
         local_files: list[str] = []
-        for root, _, filenames in walker:
+        for suffix in PICTURE_SUFFIXES:
             local_files.extend(
                 [
-                    str((root / filename).relative_to(local_dir))
-                    for filename in filenames
-                    if filename.rsplit(".", 1)[-1].lower() in PICTURE_SUFFIXES
+                    str(local_file.relative_to(local_dir))
+                    for local_file in local_dir.rglob(f"*.{suffix}")
                 ]
             )
-        return local_files
+        return sorted(local_files)
 
     @cached_property
     def _speed_uom(self) -> str:
@@ -199,8 +181,7 @@ class CompositeFlow(FlowHandler):
             suffix = MIME_TO_SUFFIX[filetype.guess_mime(uf_path)]
             fn = ud / f"x.{suffix}"
             idx = 0
-            # mypy doesn't know about follow_symlinks parameter.
-            while (uf := fn.with_stem(f"image{idx:03d}")).exists(follow_symlinks=False):  # type: ignore[call-arg]
+            while (uf := fn.with_stem(f"image{idx:03d}")).exists():
                 idx += 1
             shutil.move(uf_path, uf)
             return str(uf.relative_to(self._local_dir))
