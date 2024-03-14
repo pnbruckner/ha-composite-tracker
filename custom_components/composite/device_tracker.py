@@ -49,12 +49,17 @@ from homeassistant.util.location import distance
 
 from .const import (
     ATTR_ACC,
+    ATTR_CHARGING,
     ATTR_ENTITIES,
+    ATTR_LAST_ENTITY_ID,
+    ATTR_LAST_SEEN,
+    ATTR_LAST_TIMESTAMP,
     ATTR_LAT,
     ATTR_LON,
     CONF_ALL_STATES,
     CONF_DRIVING_SPEED,
     CONF_ENTITY,
+    CONF_ENTITY_PICTURE,
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
     MIN_ANGLE_SPEED,
@@ -69,10 +74,6 @@ _LOGGER = logging.getLogger(__name__)
 # async_request_call, atomic.
 PARALLEL_UPDATES = 1
 
-ATTR_CHARGING = "charging"
-ATTR_LAST_SEEN = "last_seen"
-ATTR_LAST_TIMESTAMP = "last_timestamp"
-ATTR_LAST_ENTITY_ID = "last_entity_id"
 
 _RESTORE_EXTRA_ATTRS = (
     ATTR_ENTITY_ID,
@@ -209,6 +210,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     _remove_track_states: Callable[[], None] | None = None
     _req_movement: bool
     _driving_speed: float | None  # m/s
+    _use_entity_picture: bool
 
     def __init__(self, entry: ConfigEntry) -> None:
         """Initialize Composite Device Tracker."""
@@ -320,6 +322,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         for entity_id in cfg_entity_ids:
             await self._entity_updated(entity_id, self.hass.states.get(entity_id))
 
+        self._use_entity_picture = True
+        if entity_picture := options.get(CONF_ENTITY_PICTURE):
+            self._attr_entity_picture = entity_picture
+        elif not any(entity.use_picture for entity in self._entities.values()):
+            self._attr_entity_picture = None
+            self._use_entity_picture = False
+
         async def state_listener(event: Event) -> None:
             """Process input entity state update."""
             await self.async_request_call(
@@ -357,7 +366,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         # Even if we don't need to restore most of the state (i.e., if we've been
         # updated by at least one new state), we may need to restore entity picture, if
         # we had one but the entities we've been updated from so far do not.
-        if not self.entity_picture:
+        if not self.entity_picture and self._use_entity_picture:
             self._attr_entity_picture = last_state.attributes.get(ATTR_ENTITY_PICTURE)
 
         if self._prev_seen:

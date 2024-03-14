@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Coroutine
+from contextlib import suppress
 import logging
+from pathlib import Path
 from typing import Any, cast
 
 import voluptuous as vol
@@ -17,7 +19,7 @@ from homeassistant.const import (
     SERVICE_RELOAD,
     Platform,
 )
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, async_get_hass
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.reload import async_integration_yaml_config
 from homeassistant.helpers.service import async_register_admin_service
@@ -29,6 +31,7 @@ from .const import (
     CONF_DEFAULT_OPTIONS,
     CONF_DRIVING_SPEED,
     CONF_ENTITY,
+    CONF_ENTITY_PICTURE,
     CONF_REQ_MOVEMENT,
     CONF_TIME_AS,
     CONF_TRACKERS,
@@ -67,26 +70,57 @@ def _entities(entities: list[str | dict]) -> list[dict]:
     return result
 
 
-def _tracker_ids(
-    value: list[dict[vol.Required | vol.Optional, Any]]
-) -> list[dict[vol.Required | vol.Optional, Any]]:
-    """Determine tracker ID.
+def _entity_picture(entity_picture: str) -> str:
+    """Validate entity picture.
 
-    Also ensure IDs are unique.
+    Can be an URL or a file in "/local".
+
+    file can be "/local/file" or just "file"
+
+    Returns URL or "/local/file"
+    """
+    with suppress(vol.Invalid):
+        return cv.url(entity_picture)
+
+    local_dir = Path("/local")
+    local_file = Path(entity_picture)
+    with suppress(ValueError):
+        local_file = local_file.relative_to(local_dir)
+    if not (Path(async_get_hass().config.path("www")) / local_file).is_file():
+        raise vol.Invalid(f"{entity_picture} does not exist")
+    return str(local_dir / local_file)
+
+
+def _trackers(
+    trackers: list[dict[vol.Required | vol.Optional, Any]]
+) -> list[dict[vol.Required | vol.Optional, Any]]:
+    """Validate tracker entries.
+
+    Determine tracker IDs and ensure they are unique.
+    Also for each tracker, check that no entity has use_picture set if an entity_picture
+    file is specified for tracker.
     """
     ids: list[str] = []
-    for conf in value:
-        if CONF_ID not in conf:
-            name: str = conf[CONF_NAME]
+    for t_idx, tracker in enumerate(trackers):
+        if CONF_ID not in tracker:
+            name: str = tracker[CONF_NAME]
             if name == slugify(name):
-                conf[CONF_ID] = name
-                conf[CONF_NAME] = name.replace("_", " ").title()
+                tracker[CONF_ID] = name
+                tracker[CONF_NAME] = name.replace("_", " ").title()
             else:
-                conf[CONF_ID] = cv.slugify(conf[CONF_NAME])
-        ids.append(cast(str, conf[CONF_ID]))
+                tracker[CONF_ID] = cv.slugify(tracker[CONF_NAME])
+        ids.append(cast(str, tracker[CONF_ID]))
+        if tracker.get(CONF_ENTITY_PICTURE):
+            for e_idx, entity in enumerate(tracker[CONF_ENTITY_ID]):
+                if entity[CONF_USE_PICTURE]:
+                    raise vol.Invalid(
+                        f"{CONF_ENTITY_PICTURE} specified; "
+                        f"cannot use {CONF_USE_PICTURE}",
+                        path=[t_idx, CONF_ENTITY_ID, e_idx, CONF_USE_PICTURE],
+                    )
     if len(ids) != len(set(ids)):
         raise vol.Invalid("id's must be unique")
-    return value
+    return trackers
 
 
 def _defaults(config: dict) -> dict:
@@ -147,6 +181,7 @@ _TRACKER = {
     vol.Optional(CONF_TIME_AS): cv.string,
     vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
     vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
+    vol.Optional(CONF_ENTITY_PICTURE): vol.All(cv.string, _entity_picture),
 }
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -165,7 +200,7 @@ CONFIG_SCHEMA = vol.Schema(
                         }
                     ),
                     vol.Required(CONF_TRACKERS, default=list): vol.All(
-                        cv.ensure_list, vol.Length(1), [_TRACKER], _tracker_ids
+                        cv.ensure_list, vol.Length(1), [_TRACKER], _trackers
                     ),
                 }
             ),
