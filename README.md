@@ -1,6 +1,6 @@
 # <img src="https://brands.home-assistant.io/composite/icon.png" alt="Composite Device Tracker Platform" width="50" height="50"/> Composite Device Tracker
 
-This integration creates a composite `device_tracker` entity from one or more other entities. It will update whenever one of the watched entities updates, taking the `last_seen`, `last_timestamp` or`last_updated` (and possibly GPS and other) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" entities update irregularly.
+This integration creates a composite `device_tracker` entity from one or more other entities. It will update whenever one of the watched entities updates, taking the "last seen" (and possibly GPS and other) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" entities update irregularly.
 
 It will also create a `sensor` entity that indicates the speed of the device.
 
@@ -94,10 +94,32 @@ composite:
 - **use_picture** (*Optional*): `true` or `false`. Default is `false`. If `true`, use the entity's picture for the composite. Can only be `true` for at most one of the entities. If `entity_picture` is used, then this option cannot be used.
 
 ## Watched device notes
+### Used states
 
 For watched non-GPS-based devices, which states are used and whether any GPS data (if present) is used depends on several factors. E.g., if GPS-based devices are in use then the 'not_home'/'off' state of non-GPS-based devices will be ignored (unless `all_states` was specified as `true` for that entity.) If only non-GPS-based devices are in use, then the composite device will be 'home' if any of the watched devices are 'home'/'on', and will be 'not_home' only when _all_ the watched devices are 'not_home'/'off'.
 
-If a watched device has a `last_seen` or `last_timestamp` attribute, that will be used in the composite device. If not, then `last_updated` from the entity's state will be used instead.
+### Last seen
+
+If a watched device has a "last seen" attribute (i.e. `last_seen` or `last_timestamp`), that will be used in the composite device. If not, then `last_updated` from the entity's [state object](https://www.home-assistant.io/docs/configuration/state_object/) will be used instead.
+
+The "last seen" attribute can be in any one of these formats:
+
+Python type | description
+-|-
+aware `datetime` | In any time zone
+naive `datetime` | Assumed to be in the system's time zone (Settings -> System -> General)
+`float`, `int`, `str` | A POSIX timestamp (anything accepted by `homeassistant.util.dt.utc_from_timestamp(float(x))`
+`str` | A date & time, aware or naive (anything accepted by `homeassistant.util.dt.parse_datetime`)
+
+* See [Aware and Naive Objects](https://docs.python.org/3/library/datetime.html#aware-and-naive-objects)
+
+Integrations known to provide a supported "last seen" attribute:
+
+- Google Maps (`last_seen`, [built-in](https://www.home-assistant.io/integrations/google_maps/) or [enhanced custom](https://github.com/pnbruckner/ha-google-maps))
+- [Enhanced GPSLogger](https://github.com/pnbruckner/ha-gpslogger) (`last_seen`)
+- [iCould3](https://github.com/gcobb321/icloud3) (`last_timestamp`)
+
+### Miscellaneous
 
 If a watched device has a `battery_level` or `battery` attribute, that will be used to update the composite device's `battery_level` attribute. If it has a `battery_charging` or `charging` attribute, that will be used to udpate the composite device's `battery_charging` attribute.
 
