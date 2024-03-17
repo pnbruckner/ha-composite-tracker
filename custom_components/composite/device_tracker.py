@@ -52,7 +52,6 @@ from .const import (
     ATTR_CHARGING,
     ATTR_ENTITIES,
     ATTR_LAST_ENTITY_ID,
-    ATTR_LAST_LOCATED,
     ATTR_LAST_SEEN,
     ATTR_LAST_TIMESTAMP,
     ATTR_LAT,
@@ -97,7 +96,7 @@ _SOURCE_TYPE_NON_GPS = (
 _GPS_ACCURACY_ATTRS = (ATTR_GPS_ACCURACY, ATTR_ACC)
 _BATTERY_ATTRS = (ATTR_BATTERY_LEVEL, ATTR_BATTERY)
 _CHARGING_ATTRS = (ATTR_BATTERY_CHARGING, ATTR_CHARGING)
-_LAST_SEEN_ATTRS = (ATTR_LAST_SEEN, ATTR_LAST_TIMESTAMP, ATTR_LAST_LOCATED)
+_LAST_SEEN_ATTRS = (ATTR_LAST_SEEN, ATTR_LAST_TIMESTAMP)
 
 
 async def async_setup_entry(
@@ -418,24 +417,24 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         new_attrs = Attributes(new_state.attributes)
 
         # Get time device was last seen, which is specified by one of the entity's
-        # attributes defined by _LAST_SEEN_ATTRS, or if that doesn't exist, then
-        # last_updated from the new state object.
-        # Make sure last_seen is timezone aware in local timezone.
-        # Note that dt_util.as_local assumes naive datetime is in local timezone.
+        # attributes defined by _LAST_SEEN_ATTRS, as a datetime.
 
-        def get_last_seen() -> datetime:
+        def get_last_seen() -> datetime | None:
             """Get last_seen from one of the possible attributes."""
-            raw_last_seen = new_attrs.get(_LAST_SEEN_ATTRS)
+            if (raw_last_seen := new_attrs.get(_LAST_SEEN_ATTRS)) is None:
+                return None
             if isinstance(raw_last_seen, datetime):
                 return raw_last_seen
             with suppress(TypeError, ValueError):
                 return dt_util.utc_from_timestamp(float(raw_last_seen))
             with suppress(TypeError):
-                if (last_seen := dt_util.parse_datetime(raw_last_seen)) is not None:
-                    return last_seen
-            return new_state.last_updated
+                return dt_util.parse_datetime(raw_last_seen)
+            return None
 
-        last_seen = dt_util.as_local(get_last_seen())
+        # Make sure last_seen is timezone aware in local timezone.
+        # Note that dt_util.as_local assumes naive datetime is in local timezone.
+        # Use last_updated from the new state object if no valid "last seen" was found.
+        last_seen = dt_util.as_local(get_last_seen() or new_state.last_updated)
 
         old_last_seen = entity.seen
         if old_last_seen and last_seen < old_last_seen:
