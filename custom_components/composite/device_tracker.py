@@ -417,19 +417,24 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         new_attrs = Attributes(new_state.attributes)
 
         # Get time device was last seen, which is specified by one of the entity's
-        # attributes defined by _LAST_SEEN_ATTRS, or if that doesn't exist, then
-        # last_updated from the new state object.
+        # attributes defined by _LAST_SEEN_ATTRS, as a datetime.
+
+        def get_last_seen() -> datetime | None:
+            """Get last_seen from one of the possible attributes."""
+            if (raw_last_seen := new_attrs.get(_LAST_SEEN_ATTRS)) is None:
+                return None
+            if isinstance(raw_last_seen, datetime):
+                return raw_last_seen
+            with suppress(TypeError, ValueError):
+                return dt_util.utc_from_timestamp(float(raw_last_seen))
+            with suppress(TypeError):
+                return dt_util.parse_datetime(raw_last_seen)
+            return None
+
         # Make sure last_seen is timezone aware in local timezone.
         # Note that dt_util.as_local assumes naive datetime is in local timezone.
-        last_seen: datetime | str | None = new_attrs.get(_LAST_SEEN_ATTRS)
-        if not isinstance(last_seen, datetime):
-            try:
-                last_seen = dt_util.utc_from_timestamp(
-                    float(last_seen)  # type: ignore[arg-type]
-                )
-            except (TypeError, ValueError):
-                last_seen = new_state.last_updated
-        last_seen = dt_util.as_local(last_seen)
+        # Use last_updated from the new state object if no valid "last seen" was found.
+        last_seen = dt_util.as_local(get_last_seen() or new_state.last_updated)
 
         old_last_seen = entity.seen
         if old_last_seen and last_seen < old_last_seen:
