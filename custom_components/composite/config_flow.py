@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from functools import cached_property
 import logging
 from pathlib import Path
 import shutil
@@ -10,7 +11,6 @@ from typing import Any, cast
 import filetype
 import voluptuous as vol
 
-from homeassistant.backports.functools import cached_property
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import DOMAIN as DT_DOMAIN
 from homeassistant.components.file_upload import process_uploaded_file
