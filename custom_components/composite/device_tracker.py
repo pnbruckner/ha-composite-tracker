@@ -269,8 +269,8 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 self._config_entry_updated
             )
         )
-        await self.async_request_call(self._process_config_options())
         await self.async_request_call(self._restore_state())
+        await self.async_request_call(self._process_config_options())
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when entity will be removed from hass."""
@@ -356,22 +356,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
     async def _restore_state(self) -> None:
         """Restore state."""
-
-        # Do we need to restore from saved state and, if so, is there one?
-        if self._prev_seen and self.entity_picture:
-            return
         if not (last_state := await self.async_get_last_state()):
             return
 
-        # Even if we don't need to restore most of the state (i.e., if we've been
-        # updated by at least one new state), we may need to restore entity picture, if
-        # we had one but the entities we've been updated from so far do not.
-        if not self.entity_picture and self._use_entity_picture:
-            self._attr_entity_picture = last_state.attributes.get(ATTR_ENTITY_PICTURE)
-
-        if self._prev_seen:
-            return
-
+        self._attr_entity_picture = last_state.attributes.get(ATTR_ENTITY_PICTURE)
         self._battery_level = last_state.attributes.get(ATTR_BATTERY_LEVEL)
         self._source_type = last_state.attributes[ATTR_SOURCE_TYPE]
         self._location_accuracy = last_state.attributes.get(ATTR_GPS_ACCURACY) or 0
@@ -387,9 +375,11 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 ATTR_ENTITIES
             ] = self._attr_extra_state_attributes.pop(ATTR_ENTITY_ID)
         with suppress(KeyError):
-            self._attr_extra_state_attributes[ATTR_LAST_SEEN] = dt_util.parse_datetime(
+            last_seen = dt_util.parse_datetime(
                 self._attr_extra_state_attributes[ATTR_LAST_SEEN]
             )
+            self._attr_extra_state_attributes[ATTR_LAST_SEEN] = last_seen
+            self._prev_seen = last_seen
         if self.source_type in _SOURCE_TYPE_NON_GPS and (
             self.latitude is None or self.longitude is None
         ):
