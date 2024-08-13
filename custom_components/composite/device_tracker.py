@@ -9,7 +9,7 @@ from enum import Enum, auto
 import logging
 from math import atan2, degrees
 from types import MappingProxyType
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import (
@@ -438,9 +438,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         if not gps:
             with suppress(KeyError):
                 gps = new_attrs[ATTR_LAT], new_attrs[ATTR_LON]
-        gps_accuracy = cast(Optional[int], new_attrs.get(_GPS_ACCURACY_ATTRS))
-        battery = cast(Optional[int], new_attrs.get(_BATTERY_ATTRS))
-        charging = cast(Optional[bool], new_attrs.get(_CHARGING_ATTRS))
+        gps_accuracy = cast(int | None, new_attrs.get(_GPS_ACCURACY_ATTRS))
+        battery = cast(int | None, new_attrs.get(_BATTERY_ATTRS))
+        charging = cast(bool | None, new_attrs.get(_CHARGING_ATTRS))
 
         # What type of tracker is this?
         if new_state.domain == BS_DOMAIN:
@@ -467,7 +467,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 return
 
             new_data = Location(gps, gps_accuracy)
-            old_data = cast(Optional[Location], entity.data)
+            old_data = cast(Location | None, entity.data)
             if last_seen == old_last_seen and new_data == old_data:
                 return
             entity.good(last_seen, source_type, new_data)

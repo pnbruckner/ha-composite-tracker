@@ -205,18 +205,17 @@ class CompositeFlow(FlowHandler):
             prv_cfgs = {
                 cfg[CONF_ENTITY]: cfg for cfg in self.options.get(CONF_ENTITY_ID, [])
             }
-            new_cfgs: list[dict[str, Any]] = []
-            for entity_id in user_input[CONF_ENTITY_ID]:
-                new_cfgs.append(
-                    prv_cfgs.get(
-                        entity_id,
-                        {
-                            CONF_ENTITY: entity_id,
-                            CONF_USE_PICTURE: False,
-                            CONF_ALL_STATES: False,
-                        },
-                    )
+            new_cfgs = [
+                prv_cfgs.get(
+                    entity_id,
+                    {
+                        CONF_ENTITY: entity_id,
+                        CONF_USE_PICTURE: False,
+                        CONF_ALL_STATES: False,
+                    },
                 )
+                for entity_id in user_input[CONF_ENTITY_ID]
+            ]
             self.options[CONF_ENTITY_ID] = new_cfgs
             if new_cfgs:
                 return await self.async_step_ep_menu()
