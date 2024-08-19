@@ -30,6 +30,8 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+PACKAGE_MERGE_HINT = "dict"
+
 CONF_TZ_FINDER = "tz_finder"
 CONF_TZ_FINDER_CLASS = "tz_finder_class"
 
