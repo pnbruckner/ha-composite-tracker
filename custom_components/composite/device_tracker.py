@@ -378,8 +378,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             last_seen = dt_util.parse_datetime(
                 self._attr_extra_state_attributes[ATTR_LAST_SEEN]
             )
-            self._attr_extra_state_attributes[ATTR_LAST_SEEN] = last_seen
-            self._prev_seen = last_seen
+            if last_seen is None:
+                self._attr_extra_state_attributes[ATTR_LAST_SEEN] = None
+            else:
+                self._attr_extra_state_attributes[ATTR_LAST_SEEN] = dt_util.as_local(
+                    last_seen
+                )
+                self._prev_seen = dt_util.as_utc(last_seen)
         if self.source_type in _SOURCE_TYPE_NON_GPS and (
             self.latitude is None or self.longitude is None
         ):
@@ -410,21 +415,21 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         # attributes defined by _LAST_SEEN_ATTRS, as a datetime.
 
         def get_last_seen() -> datetime | None:
-            """Get last_seen from one of the possible attributes."""
+            """Get last_seen (in UTC) from one of the possible attributes."""
             if (raw_last_seen := new_attrs.get(_LAST_SEEN_ATTRS)) is None:
                 return None
             if isinstance(raw_last_seen, datetime):
-                return raw_last_seen
+                return dt_util.as_utc(raw_last_seen)
             with suppress(TypeError, ValueError):
                 return dt_util.utc_from_timestamp(float(raw_last_seen))
             with suppress(TypeError):
-                return dt_util.parse_datetime(raw_last_seen)
+                if (parsed_last_seen := dt_util.parse_datetime(raw_last_seen)) is None:
+                    return None
+                return dt_util.as_utc(parsed_last_seen)
             return None
 
-        # Make sure last_seen is timezone aware in local timezone.
-        # Note that dt_util.as_local assumes naive datetime is in local timezone.
         # Use last_updated from the new state object if no valid "last seen" was found.
-        last_seen = dt_util.as_local(get_last_seen() or new_state.last_updated)
+        last_seen = get_last_seen() or new_state.last_updated
 
         old_last_seen = entity.seen
         if old_last_seen and last_seen < old_last_seen:
@@ -549,8 +554,8 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 "last_seen not newer than previous update (%s) <= (%s)",
                 self.entity_id,
                 entity_id,
-                last_seen,
-                self._prev_seen,
+                dt_util.as_local(last_seen),
+                dt_util.as_local(self._prev_seen),
             )
             return
 
@@ -563,7 +568,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 if _entity.source_type
             ),
             ATTR_LAST_ENTITY_ID: entity_id,
-            ATTR_LAST_SEEN: _nearest_second(last_seen),
+            ATTR_LAST_SEEN: dt_util.as_local(_nearest_second(last_seen)),
         }
         if charging is not None:
             attrs[ATTR_BATTERY_CHARGING] = charging
@@ -617,6 +622,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             assert attributes
             last_ent = cast(str, attributes[ATTR_LAST_ENTITY_ID])
             last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
+            # It's ok that last_seen is in local tz and self._prev_seen is in UTC.
+            # last_seen's value will automatically be converted to UTC during the
+            # subtraction operation.
             seconds = (last_seen - self._prev_seen).total_seconds()
             min_seconds = MIN_SPEED_SECONDS
             if last_ent != prev_ent:
