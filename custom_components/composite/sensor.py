@@ -98,7 +98,6 @@ class CompositeSensor(SensorEntity):
             ]
 
         self._attr_native_value = value
-        self._attr_force_update = bool(value)
         self._attr_extra_state_attributes = {
             ATTR_ANGLE: angle,
             ATTR_DIRECTION: direction(angle),
