@@ -82,9 +82,7 @@ def _entity_picture(entity_picture: str) -> str:
     return str(local_dir / local_file)
 
 
-def _trackers(
-    trackers: list[dict[vol.Required | vol.Optional, Any]]
-) -> list[dict[vol.Required | vol.Optional, Any]]:
+def _trackers(trackers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Validate tracker entries.
 
     Determine tracker IDs and ensure they are unique.
