@@ -17,7 +17,9 @@ from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.config_entries import (
     SOURCE_IMPORT,
     ConfigEntry,
+    ConfigEntryBaseFlow,
     ConfigFlow,
+    ConfigFlowResult,
     OptionsFlowWithConfigEntry,
 )
 from homeassistant.const import (
@@ -30,7 +32,6 @@ from homeassistant.const import (
     UnitOfSpeed,
 )
 from homeassistant.core import State, callback
-from homeassistant.data_entry_flow import FlowHandler, FlowResult
 from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
@@ -85,7 +86,7 @@ def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
-class CompositeFlow(FlowHandler):
+class CompositeFlow(ConfigEntryBaseFlow):
     """Composite flow mixin."""
 
     @cached_property
@@ -178,7 +179,7 @@ class CompositeFlow(FlowHandler):
         with process_uploaded_file(self.hass, uploaded_file_id) as uf_path:
             ud = self._uploaded_dir
             ud.mkdir(parents=True, exist_ok=True)
-            suffix = MIME_TO_SUFFIX[filetype.guess_mime(uf_path)]
+            suffix = MIME_TO_SUFFIX[cast(str, filetype.guess_mime(uf_path))]
             fn = ud / f"x.{suffix}"
             idx = 0
             while (uf := fn.with_stem(f"image{idx:03d}")).exists():
@@ -188,7 +189,7 @@ class CompositeFlow(FlowHandler):
 
     async def async_step_options(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Get config options."""
         errors = {}
 
@@ -271,7 +272,9 @@ class CompositeFlow(FlowHandler):
             step_id="options", data_schema=data_schema, errors=errors, last_step=False
         )
 
-    async def async_step_ep_menu(self, _: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_ep_menu(
+        self, _: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Specify where to get composite's picture from."""
         entity_id, local_file = self._cur_entity_picture
         cur_source: Path | str | None
@@ -294,7 +297,7 @@ class CompositeFlow(FlowHandler):
 
     async def async_step_ep_input_entity(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Specify which input to get composite's picture from."""
         if user_input is not None:
             self._set_entity_picture(entity_id=user_input.get(CONF_ENTITY))
@@ -323,7 +326,7 @@ class CompositeFlow(FlowHandler):
 
     async def async_step_ep_local_file(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Specify a local file for composite's picture."""
         if user_input is not None:
             self._set_entity_picture(local_file=user_input.get(CONF_ENTITY_PICTURE))
@@ -353,7 +356,7 @@ class CompositeFlow(FlowHandler):
 
     async def async_step_ep_upload_file(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Upload a file for composite's picture."""
         if user_input is not None:
             if (uploaded_file_id := user_input.get(CONF_ENTITY_PICTURE)) is None:
@@ -383,7 +386,7 @@ class CompositeFlow(FlowHandler):
 
     async def async_step_ep_warn(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Warn that since "/local" was created system might need to be restarted."""
         if user_input is not None:
             return await self.async_step_all_states()
@@ -394,14 +397,16 @@ class CompositeFlow(FlowHandler):
             last_step=False,
         )
 
-    async def async_step_ep_none(self, _: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_ep_none(
+        self, _: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Set composite's entity picture to none."""
         self._set_entity_picture()
         return await self.async_step_all_states()
 
     async def async_step_all_states(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Specify if all states should be used for appropriate entities."""
         if user_input is not None:
             entity_ids = user_input.get(CONF_ENTITY, [])
@@ -430,7 +435,9 @@ class CompositeFlow(FlowHandler):
         return self.async_show_form(step_id="all_states", data_schema=data_schema)
 
     @abstractmethod
-    async def async_step_done(self, _: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_done(
+        self, _: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Finish the flow."""
 
 
@@ -466,7 +473,7 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
         """Return mutable copy of options."""
         return self._options
 
-    async def async_step_import(self, data: dict[str, Any]) -> FlowResult:
+    async def async_step_import(self, data: dict[str, Any]) -> ConfigFlowResult:
         """Import config entry from configuration."""
         if (driving_speed := data.get(CONF_DRIVING_SPEED)) is not None:
             data[CONF_DRIVING_SPEED] = SpeedConverter.convert(
@@ -483,7 +490,9 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
             **split_conf(data),  # type: ignore[arg-type]
         )
 
-    async def async_step_user(self, _: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(
+        self, _: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Start user config flow."""
         return await self.async_step_name()
 
@@ -499,7 +508,7 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
 
     async def async_step_name(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Get name."""
         errors = {}
 
@@ -517,7 +526,9 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
             step_id="name", data_schema=data_schema, errors=errors, last_step=False
         )
 
-    async def async_step_done(self, _: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_done(
+        self, _: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Finish the flow."""
         return self.async_create_entry(title=self._name, data={}, options=self.options)
 
@@ -525,6 +536,8 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
 class CompositeOptionsFlow(OptionsFlowWithConfigEntry, CompositeFlow):
     """Composite integration options flow."""
 
-    async def async_step_done(self, _: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_done(
+        self, _: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Finish the flow."""
         return self.async_create_entry(title="", data=self.options)
