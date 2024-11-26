@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from functools import cached_property
+from functools import cached_property  # pylint: disable=hass-deprecated-import
 import logging
 from pathlib import Path
 import shutil

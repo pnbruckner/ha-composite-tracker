@@ -37,7 +37,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import Event, HomeAssistant, State
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -329,7 +329,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self._attr_entity_picture = None
             self._use_entity_picture = False
 
-        async def state_listener(event: Event) -> None:
+        async def state_listener(event: Event[EventStateChangedData]) -> None:
             """Process input entity state update."""
             await self.async_request_call(
                 self._entity_updated(event.data["entity_id"], event.data["new_state"])
