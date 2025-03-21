@@ -104,9 +104,11 @@ class CompositeFlow(ConfigEntryBaseFlow):
         """Return real path to "/local/uploaded" directory."""
         return self._local_dir / "uploaded"
 
-    @cached_property
     def _local_files(self) -> list[str]:
-        """Return a list of files in "/local" and subdirectories."""
+        """Return a list of files in "/local" and subdirectories.
+
+        Must be called in an executor since it does file I/O.
+        """
         if not (local_dir := self._local_dir).is_dir():
             _LOGGER.debug("/local directory (%s) does not exist", local_dir)
             return []
@@ -172,7 +174,7 @@ class CompositeFlow(ConfigEntryBaseFlow):
     def _save_uploaded_file(self, uploaded_file_id: str) -> str:
         """Save uploaded file.
 
-        Must be called in an executor.
+        Must be called in an executor since it does file I/O.
 
         Returns name of file relative to "/local".
         """
@@ -284,7 +286,7 @@ class CompositeFlow(ConfigEntryBaseFlow):
             cur_source = entity_id
 
         menu_options = ["all_states", "ep_upload_file", "ep_input_entity"]
-        if self._local_files:
+        if await self.hass.async_add_executor_job(self._local_files):
             menu_options.insert(1, "ep_local_file")
         if cur_source:
             menu_options.append("ep_none")
@@ -332,7 +334,7 @@ class CompositeFlow(ConfigEntryBaseFlow):
             self._set_entity_picture(local_file=user_input.get(CONF_ENTITY_PICTURE))
             return await self.async_step_all_states()
 
-        local_files = self._local_files
+        local_files = await self.hass.async_add_executor_job(self._local_files)
         _, local_file = self._cur_entity_picture
         if local_file and local_file not in local_files:
             local_files.append(local_file)
@@ -363,14 +365,24 @@ class CompositeFlow(ConfigEntryBaseFlow):
                 self._set_entity_picture()
                 return await self.async_step_all_states()
 
-            local_dir_exists = self._local_dir.is_dir()
-            local_file = await self.hass.async_add_executor_job(
-                self._save_uploaded_file, uploaded_file_id
+            def save_uploaded_file() -> tuple[bool, str]:
+                """Save uploaded file.
+
+                Must be called in an executor since it does file I/O.
+
+                Returns if local directory existed beforehand and name of uploaded file.
+                """
+                local_dir_exists = self._local_dir.is_dir()
+                local_file = self._save_uploaded_file(uploaded_file_id)
+                return local_dir_exists, local_file
+
+            local_dir_exists, local_file = await self.hass.async_add_executor_job(
+                save_uploaded_file
             )
             self._set_entity_picture(local_file=local_file)
-            if local_dir_exists:
-                return await self.async_step_all_states()
-            return await self.async_step_ep_warn()
+            if not local_dir_exists:
+                return await self.async_step_ep_warn()
+            return await self.async_step_all_states()
 
         accept = ", ".join(f".{ext}" for ext in PICTURE_SUFFIXES)
         data_schema = vol.Schema(
@@ -464,9 +476,7 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
     @callback
     def async_supports_options_flow(cls, config_entry: ConfigEntry) -> bool:
         """Return options flow support for this handler."""
-        if config_entry.source == SOURCE_IMPORT:
-            return False
-        return True
+        return config_entry.source != SOURCE_IMPORT
 
     @property
     def options(self) -> dict[str, Any]:
