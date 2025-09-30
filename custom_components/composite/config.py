@@ -64,6 +64,8 @@ def _entities(entities: list[str | dict]) -> list[dict]:
 def _entity_picture(entity_picture: str) -> str:
     """Validate entity picture.
 
+    Must be run in an executor since it might do file I/O.
+
     Can be an URL or a file in "/local".
 
     file can be "/local/file" or just "file"
@@ -82,9 +84,7 @@ def _entity_picture(entity_picture: str) -> str:
     return str(local_dir / local_file)
 
 
-def _trackers(
-    trackers: list[dict[vol.Required | vol.Optional, Any]]
-) -> list[dict[vol.Required | vol.Optional, Any]]:
+def _trackers(trackers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Validate tracker entries.
 
     Determine tracker IDs and ensure they are unique.
@@ -206,4 +206,6 @@ async def async_validate_config(
     hass: HomeAssistant, config: ConfigType
 ) -> ConfigType | None:
     """Validate configuration."""
-    return cast(ConfigType, _CONFIG_SCHEMA(config))
+    # Perform _CONFIG_SCHEMA validation in executor since it may indirectly invoke
+    # _entity_picture which must be run in an executor because it might do file I/O.
+    return cast(ConfigType, await hass.async_add_executor_job(_CONFIG_SCHEMA, config))
