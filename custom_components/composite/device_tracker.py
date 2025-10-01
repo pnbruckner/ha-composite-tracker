@@ -207,6 +207,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     _longitude: float | None = None
 
     _prev_seen: datetime | None = None
+    _prev_speed: float | None = None
     _remove_track_states: Callable[[], None] | None = None
     _req_movement: bool
     _driving_speed: float | None  # m/s
@@ -616,10 +617,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         speed = None
         angle = None
-        if prev_ent and self._prev_seen and prev_lat and prev_lon and gps:
-            assert lat
-            assert lon
-            assert attributes
+        use_new_speed = True
+        if (
+            prev_ent and self._prev_seen
+            and prev_lat is not None and prev_lon is not None
+            and lat is not None and lon is not None
+        ):
             last_ent = cast(str, attributes[ATTR_LAST_ENTITY_ID])
             last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
             # It's ok that last_seen is in local tz and self._prev_seen is in UTC.
@@ -636,17 +639,28 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                     seconds,
                     min_seconds,
                 )
-                return
-            meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
-            try:
-                speed = round(meters / seconds, 1)
-            except TypeError:
-                _LOGGER.error("%s: distance() returned None", self.name)
+                use_new_speed = False
             else:
-                if speed > MIN_ANGLE_SPEED:
-                    angle = round(degrees(atan2(lon - prev_lon, lat - prev_lat)))
-                    if angle < 0:
-                        angle += 360
+                meters = cast(float, distance(prev_lat, prev_lon, lat, lon))
+                try:
+                    speed = round(meters / seconds, 1)
+                except TypeError:
+                    _LOGGER.error("%s: distance() returned None", self.name)
+                else:
+                    if speed > MIN_ANGLE_SPEED:
+                        angle = round(degrees(atan2(lon - prev_lon, lat - prev_lat)))
+                        if angle < 0:
+                            angle += 360
+        if use_new_speed:
+            _LOGGER.debug(
+                "%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle
+            )
+            async_dispatcher_send(
+                self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
+            )
+            self._prev_speed = speed
+        else:
+            speed = self._prev_speed
         if (
             speed is not None
             and self._driving_speed is not None
@@ -654,10 +668,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             and self.state == STATE_NOT_HOME
         ):
             self._location_name = STATE_DRIVING
-        _LOGGER.debug("%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle)
-        async_dispatcher_send(
-            self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
-        )
 
     def _use_non_gps_data(self, entity_id: str, state: str) -> bool:
         """Determine if state should be used for non-GPS based entity."""
