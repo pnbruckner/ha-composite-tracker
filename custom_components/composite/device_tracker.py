@@ -401,6 +401,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._longitude = None
         self._attr_extra_state_attributes = {}
         self._prev_seen = None
+        self._prev_speed = None
 
     async def _entity_updated(  # noqa: C901
         self, entity_id: str, new_state: State | None
