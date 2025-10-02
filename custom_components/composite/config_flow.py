@@ -34,6 +34,8 @@ from homeassistant.const import (
 from homeassistant.core import State, callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    DurationSelector,
+    DurationSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
     FileSelector,
@@ -55,6 +57,7 @@ from .const import (
     ATTR_LON,
     CONF_ALL_STATES,
     CONF_DRIVING_SPEED,
+    CONF_END_DRIVING_DELAY,
     CONF_ENTITY,
     CONF_ENTITY_PICTURE,
     CONF_REQ_MOVEMENT,
@@ -79,6 +82,7 @@ def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
                     CONF_ENTITY_ID,
                     CONF_REQ_MOVEMENT,
                     CONF_DRIVING_SPEED,
+                    CONF_END_DRIVING_DELAY,
                     CONF_ENTITY_PICTURE,
                 ),
             ),
@@ -203,8 +207,11 @@ class CompositeFlow(ConfigEntryBaseFlow):
                     self._speed_uom,
                     UnitOfSpeed.METERS_PER_SECOND,
                 )
-            elif CONF_DRIVING_SPEED in self.options:
-                del self.options[CONF_DRIVING_SPEED]
+            else:
+                if CONF_DRIVING_SPEED in self.options:
+                    del self.options[CONF_DRIVING_SPEED]
+                if CONF_END_DRIVING_DELAY in self.options:
+                    del self.options[CONF_END_DRIVING_DELAY]
             prv_cfgs = {
                 cfg[CONF_ENTITY]: cfg for cfg in self.options.get(CONF_ENTITY_ID, [])
             }
@@ -221,6 +228,8 @@ class CompositeFlow(ConfigEntryBaseFlow):
             ]
             self.options[CONF_ENTITY_ID] = new_cfgs
             if new_cfgs:
+                if CONF_DRIVING_SPEED in self.options:
+                    return await self.async_step_end_driving_delay()
                 return await self.async_step_ep_menu()
             errors[CONF_ENTITY_ID] = "at_least_one_entity"
 
@@ -272,6 +281,37 @@ class CompositeFlow(ConfigEntryBaseFlow):
             )
         return self.async_show_form(
             step_id="options", data_schema=data_schema, errors=errors, last_step=False
+        )
+
+    async def async_step_end_driving_delay(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Get end driving delay."""
+        if user_input is not None:
+            if CONF_END_DRIVING_DELAY in user_input:
+                self.options[CONF_END_DRIVING_DELAY] = user_input[CONF_END_DRIVING_DELAY]
+            elif CONF_END_DRIVING_DELAY in self.options:
+                del self.options[CONF_END_DRIVING_DELAY]
+            return await self.async_step_ep_menu()
+
+        data_schema = vol.Schema(
+            {
+                vol.Optional(CONF_END_DRIVING_DELAY): DurationSelector(
+                    DurationSelectorConfig(
+                        enable_day=False, enable_millisecond=False, allow_negative=False
+                    )
+                ),
+            }
+        )
+        if CONF_END_DRIVING_DELAY in self.options:
+            suggested_values = {
+                CONF_END_DRIVING_DELAY: self.options[CONF_END_DRIVING_DELAY]
+            }
+            data_schema = self.add_suggested_values_to_schema(
+                data_schema, suggested_values
+            )
+        return self.async_show_form(
+            step_id="end_driving_delay", data_schema=data_schema, last_step=False
         )
 
     async def async_step_ep_menu(

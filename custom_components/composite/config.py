@@ -18,6 +18,7 @@ from .const import (
     CONF_ALL_STATES,
     CONF_DEFAULT_OPTIONS,
     CONF_DRIVING_SPEED,
+    CONF_END_DRIVING_DELAY,
     CONF_ENTITY,
     CONF_ENTITY_PICTURE,
     CONF_REQ_MOVEMENT,
@@ -129,12 +130,18 @@ def _defaults(config: dict) -> dict:
 
     def_req_mv = config[CONF_DEFAULT_OPTIONS][CONF_REQ_MOVEMENT]
     def_drv_sp = config[CONF_DEFAULT_OPTIONS].get(CONF_DRIVING_SPEED)
+    def_end_dd = config[CONF_DEFAULT_OPTIONS].get(CONF_END_DRIVING_DELAY)
+    end_dd_but_no_drv_sp = False
     for tracker in config[CONF_TRACKERS]:
         if tracker.pop(CONF_TIME_AS, None):
             unsupported_cfgs.add(CONF_TIME_AS)
         tracker[CONF_REQ_MOVEMENT] = tracker.get(CONF_REQ_MOVEMENT, def_req_mv)
         if CONF_DRIVING_SPEED not in tracker and def_drv_sp is not None:
             tracker[CONF_DRIVING_SPEED] = def_drv_sp
+        if CONF_END_DRIVING_DELAY not in tracker and def_end_dd is not None:
+            tracker[CONF_END_DRIVING_DELAY] = def_end_dd
+        if CONF_END_DRIVING_DELAY in tracker and CONF_DRIVING_SPEED not in tracker:
+            end_dd_but_no_drv_sp = True
 
     if unsupported_cfgs:
         _LOGGER.warning(
@@ -142,6 +149,11 @@ def _defaults(config: dict) -> dict:
             "Please remove them",
             DOMAIN,
             ", ".join(sorted(unsupported_cfgs)),
+        )
+    if end_dd_but_no_drv_sp:
+        raise vol.Invalid(
+            f"using {CONF_END_DRIVING_DELAY}; "
+            f"{CONF_DRIVING_SPEED} must also be specified"
         )
 
     del config[CONF_DEFAULT_OPTIONS]
@@ -172,6 +184,7 @@ _TRACKER = {
     vol.Optional(CONF_TIME_AS): cv.string,
     vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
     vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
+    vol.Optional(CONF_END_DRIVING_DELAY): cv.positive_time_period,
     vol.Optional(CONF_ENTITY_PICTURE): vol.All(cv.string, _entity_picture),
 }
 _CONFIG_SCHEMA = vol.Schema(
@@ -188,6 +201,8 @@ _CONFIG_SCHEMA = vol.Schema(
                                 CONF_REQ_MOVEMENT, default=DEF_REQ_MOVEMENT
                             ): cv.boolean,
                             vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
+                            vol.Optional(CONF_END_DRIVING_DELAY):
+                                cv.positive_time_period,
                         }
                     ),
                     vol.Required(CONF_TRACKERS, default=list): vol.All(

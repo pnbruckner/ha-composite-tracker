@@ -41,7 +41,7 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant, Stat
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import GPSType
 import homeassistant.util.dt as dt_util
@@ -58,6 +58,7 @@ from .const import (
     ATTR_LON,
     CONF_ALL_STATES,
     CONF_DRIVING_SPEED,
+    CONF_END_DRIVING_DELAY,
     CONF_ENTITY,
     CONF_ENTITY_PICTURE,
     CONF_REQ_MOVEMENT,
@@ -205,12 +206,14 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     _location_name: str | None = None
     _latitude: float | None = None
     _longitude: float | None = None
-
     _prev_seen: datetime | None = None
     _prev_speed: float | None = None
+
     _remove_track_states: Callable[[], None] | None = None
+    _remove_driving_ended: Callable[[], None] | None = None
     _req_movement: bool
     _driving_speed: float | None  # m/s
+    _end_driving_delay: timedelta | None
     _use_entity_picture: bool
 
     def __init__(self, entry: ConfigEntry) -> None:
@@ -278,6 +281,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         if self._remove_track_states:
             self._remove_track_states()
             self._remove_track_states = None
+        self._cancel_drive_ending_delay()
         await super().async_will_remove_from_hass()
 
     async def _process_config_options(self) -> None:
@@ -285,6 +289,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         options = cast(ConfigEntry, self.platform.config_entry).options
         self._req_movement = options[CONF_REQ_MOVEMENT]
         self._driving_speed = options.get(CONF_DRIVING_SPEED)
+        self._end_driving_delay = options.get(CONF_END_DRIVING_DELAY)
         entity_cfgs = {
             entity_cfg[CONF_ENTITY]: entity_cfg
             for entity_cfg in options[CONF_ENTITY_ID]
@@ -402,6 +407,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._attr_extra_state_attributes = {}
         self._prev_seen = None
         self._prev_speed = None
+        self._cancel_drive_ending_delay()
+
+    def _cancel_drive_ending_delay(self) -> None:
+        """Cancel ending of driving state."""
+        if self._remove_driving_ended:
+            self._remove_driving_ended()
+            self._remove_driving_ended = None
 
     async def _entity_updated(  # noqa: C901
         self, entity_id: str, new_state: State | None
@@ -589,7 +601,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         source_type: SourceType | str | None,
     ) -> None:
         """Set new state."""
-        # Save previously "seen" values before updating for speed calculations below.
+        # Save previously "seen" values before updating for speed calculations, etc.
         prev_ent: str | None
         prev_lat: float | None
         prev_lon: float | None
@@ -600,6 +612,11 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         else:
             # Don't use restored attributes.
             prev_ent = prev_lat = prev_lon = None
+        was_driving = (
+            self._prev_speed is not None
+            and self._driving_speed is not None
+            and self._prev_speed >= self._driving_speed
+        )
 
         self._battery_level = battery
         self._source_type = source_type
@@ -616,6 +633,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         self._attr_extra_state_attributes = attributes
 
+        last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
         speed = None
         angle = None
         use_new_speed = True
@@ -624,14 +642,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             and prev_lat is not None and prev_lon is not None
             and lat is not None and lon is not None
         ):
-            last_ent = cast(str, attributes[ATTR_LAST_ENTITY_ID])
-            last_seen = cast(datetime, attributes[ATTR_LAST_SEEN])
             # It's ok that last_seen is in local tz and self._prev_seen is in UTC.
             # last_seen's value will automatically be converted to UTC during the
             # subtraction operation.
             seconds = (last_seen - self._prev_seen).total_seconds()
             min_seconds = MIN_SPEED_SECONDS
-            if last_ent != prev_ent:
+            if cast(str, attributes[ATTR_LAST_ENTITY_ID]) != prev_ent:
                 min_seconds *= 3
             if seconds < min_seconds:
                 _LOGGER.debug(
@@ -652,6 +668,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                         angle = round(degrees(atan2(lon - prev_lon, lat - prev_lat)))
                         if angle < 0:
                             angle += 360
+
         if use_new_speed:
             _LOGGER.debug(
                 "%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle
@@ -662,12 +679,38 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self._prev_speed = speed
         else:
             speed = self._prev_speed
-        if (
+
+        # Only set state to driving if it's currently "away" (i.e., not in a zone.)
+        if self.state != STATE_NOT_HOME:
+            self._cancel_drive_ending_delay()
+            return
+
+        driving = (
             speed is not None
             and self._driving_speed is not None
             and speed >= self._driving_speed
-            and self.state == STATE_NOT_HOME
-        ):
+        )
+
+        async def driving_ended(_utcnow: datetime) -> None:
+            """End driving state."""
+            self._remove_driving_ended = None
+
+            async def end_driving() -> None:
+                """End driving state."""
+                self._location_name = None
+
+            await self.async_request_call(end_driving())
+            self.async_write_ha_state()
+
+        if driving:
+            self._cancel_drive_ending_delay()
+        elif was_driving:
+            if self._end_driving_delay is not None:
+                self._remove_driving_ended = async_call_later(
+                    self.hass, self._end_driving_delay, driving_ended
+                )
+
+        if driving or self._remove_driving_ended is not None:
             self._location_name = STATE_DRIVING
 
     def _use_non_gps_data(self, entity_id: str, state: str) -> bool:

@@ -9,6 +9,13 @@
                     "entity": "Entity"
                 }
             },
+            "end_driving_delay": {
+                "title": "End Driving Delay",
+                "description": "Time to hold driving state after speed falls below configured driving speed.",
+                "data": {
+                    "end_driving_delay": "End driving delay"
+                }
+            },
             "ep_input_entity": {
                 "title": "Picture Entity",
                 "description": "Choose entity whose picture will be used for the composite.\nIt may be none.",
@@ -96,6 +103,13 @@
                 "description": "Select entities for which all states should be used.\nNote that this only applies to entities whose source type is not GPS.",
                 "data": {
                     "entity": "Entity"
+                }
+            },
+            "end_driving_delay": {
+                "title": "End Driving Delay",
+                "description": "Time to hold driving state after speed falls below configured driving speed.",
+                "data": {
+                    "end_driving_delay": "End driving delay"
                 }
             },
             "ep_input_entity": {
