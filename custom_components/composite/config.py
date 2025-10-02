@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
+from datetime import timedelta
 import logging
 from pathlib import Path
 from typing import Any, cast
@@ -59,6 +60,17 @@ def _entities(entities: list[str | dict]) -> list[dict]:
             result.append(
                 {CONF_ENTITY: entity, CONF_ALL_STATES: False, CONF_USE_PICTURE: False}
             )
+    return result
+
+
+def _time_period_to_dict(delay: timedelta) -> dict[str, float]:
+    """Return timedelta as a dict."""
+    result: dict[str, float] = {}
+    if delay.days:
+        result["days"] = delay.days
+    result["hours"] = delay.seconds // 3600
+    result["minutes"] = (delay.seconds // 60) % 60
+    result["seconds"] = delay.seconds % 60
     return result
 
 
@@ -177,6 +189,7 @@ _ENTITIES = vol.All(
     vol.Length(1),
     _entities,
 )
+_DELAY = vol.All(cv.positive_time_period, _time_period_to_dict)
 _TRACKER = {
     vol.Required(CONF_NAME): cv.string,
     vol.Optional(CONF_ID): cv.slugify,
@@ -184,7 +197,7 @@ _TRACKER = {
     vol.Optional(CONF_TIME_AS): cv.string,
     vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
     vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
-    vol.Optional(CONF_END_DRIVING_DELAY): cv.positive_time_period,
+    vol.Optional(CONF_END_DRIVING_DELAY): _DELAY,
     vol.Optional(CONF_ENTITY_PICTURE): vol.All(cv.string, _entity_picture),
 }
 _CONFIG_SCHEMA = vol.Schema(
@@ -201,8 +214,7 @@ _CONFIG_SCHEMA = vol.Schema(
                                 CONF_REQ_MOVEMENT, default=DEF_REQ_MOVEMENT
                             ): cv.boolean,
                             vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
-                            vol.Optional(CONF_END_DRIVING_DELAY):
-                                cv.positive_time_period,
+                            vol.Optional(CONF_END_DRIVING_DELAY): _DELAY,
                         }
                     ),
                     vol.Required(CONF_TRACKERS, default=list): vol.All(

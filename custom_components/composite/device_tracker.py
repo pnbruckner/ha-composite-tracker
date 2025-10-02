@@ -39,6 +39,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State
 from homeassistant.helpers import entity_registry as er
+import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
@@ -289,7 +290,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         options = cast(ConfigEntry, self.platform.config_entry).options
         self._req_movement = options[CONF_REQ_MOVEMENT]
         self._driving_speed = options.get(CONF_DRIVING_SPEED)
-        self._end_driving_delay = options.get(CONF_END_DRIVING_DELAY)
+        if (edd := options.get(CONF_END_DRIVING_DELAY)) is None:
+            self._end_driving_delay = None
+        else:
+            self._end_driving_delay = cast(timedelta, cv.time_period(edd))
         entity_cfgs = {
             entity_cfg[CONF_ENTITY]: entity_cfg
             for entity_cfg in options[CONF_ENTITY_ID]
