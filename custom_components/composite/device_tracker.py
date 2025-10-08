@@ -419,6 +419,31 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self._remove_driving_ended()
             self._remove_driving_ended = None
 
+    def _start_drive_ending_delay(self) -> None:
+        """Start delay to end driving state if configured."""
+        if self._end_driving_delay is None:
+            return
+
+        async def driving_ended(_utcnow: datetime) -> None:
+            """End driving state."""
+            self._remove_driving_ended = None
+
+            async def end_driving() -> None:
+                """End driving state."""
+                self._location_name = None
+
+            await self.async_request_call(end_driving())
+            self.async_write_ha_state()
+
+        self._remove_driving_ended = async_call_later(
+            self.hass, self._end_driving_delay, driving_ended
+        )
+
+    @property
+    def _drive_ending_delayed(self) -> bool:
+        """Return if end of driving state is being delayed."""
+        return self._remove_driving_ended is not None
+
     async def _entity_updated(  # noqa: C901
         self, entity_id: str, new_state: State | None
     ) -> None:
@@ -695,26 +720,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             and speed >= self._driving_speed
         )
 
-        async def driving_ended(_utcnow: datetime) -> None:
-            """End driving state."""
-            self._remove_driving_ended = None
-
-            async def end_driving() -> None:
-                """End driving state."""
-                self._location_name = None
-
-            await self.async_request_call(end_driving())
-            self.async_write_ha_state()
-
         if driving:
             self._cancel_drive_ending_delay()
         elif was_driving:
-            if self._end_driving_delay is not None:
-                self._remove_driving_ended = async_call_later(
-                    self.hass, self._end_driving_delay, driving_ended
-                )
+            self._start_drive_ending_delay()
 
-        if driving or self._remove_driving_ended is not None:
+        if driving or self._drive_ending_delayed:
             self._location_name = STATE_DRIVING
 
     def _use_non_gps_data(self, entity_id: str, state: str) -> bool:
