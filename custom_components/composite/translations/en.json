@@ -11,7 +11,7 @@
             },
             "end_driving_delay": {
                 "title": "End Driving Delay",
-                "description": "Time to hold driving state after speed falls below configured driving speed.",
+                "description": "Time to hold Driving state after speed falls below configured Driving speed.\n\nLeave empty to change back to Away immediately. If used, a good starting point is 2 minutes.",
                 "data": {
                     "end_driving_delay": "End driving delay"
                 }
@@ -107,7 +107,7 @@
             },
             "end_driving_delay": {
                 "title": "End Driving Delay",
-                "description": "Time to hold driving state after speed falls below configured driving speed.",
+                "description": "Time to hold Driving state after speed falls below configured Driving speed.\n\nLeave empty to change back to Away immediately. If used, a good starting point is 2 minutes.",
                 "data": {
                     "end_driving_delay": "End driving delay"
                 }
