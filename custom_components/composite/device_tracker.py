@@ -62,6 +62,7 @@ from .const import (
     CONF_END_DRIVING_DELAY,
     CONF_ENTITY,
     CONF_ENTITY_PICTURE,
+    CONF_MAX_SPEED_AGE,
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
     MIN_ANGLE_SPEED,
@@ -211,8 +212,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     _prev_speed: float | None = None
 
     _remove_track_states: Callable[[], None] | None = None
+    _remove_speed_is_stale: Callable[[], None] | None = None
     _remove_driving_ended: Callable[[], None] | None = None
     _req_movement: bool
+    _max_speed_age: timedelta | None
     _driving_speed: float | None  # m/s
     _end_driving_delay: timedelta | None
     _use_entity_picture: bool
@@ -282,6 +285,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         if self._remove_track_states:
             self._remove_track_states()
             self._remove_track_states = None
+        self._cancel_speed_stale_monitor()
         self._cancel_drive_ending_delay()
         await super().async_will_remove_from_hass()
 
@@ -289,6 +293,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         """Process options from config entry."""
         options = cast(ConfigEntry, self.platform.config_entry).options
         self._req_movement = options[CONF_REQ_MOVEMENT]
+        if (msa := options.get(CONF_MAX_SPEED_AGE)) is None:
+            self._max_speed_age = None
+        else:
+            self._max_speed_age = cast(timedelta, cv.time_period(msa))
         self._driving_speed = options.get(CONF_DRIVING_SPEED)
         if (edd := options.get(CONF_END_DRIVING_DELAY)) is None:
             self._end_driving_delay = None
@@ -411,7 +419,37 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._attr_extra_state_attributes = {}
         self._prev_seen = None
         self._prev_speed = None
+        self._cancel_speed_stale_monitor()
         self._cancel_drive_ending_delay()
+
+    def _cancel_speed_stale_monitor(self) -> None:
+        """Cancel monitoring of speed sensor staleness."""
+        if self._remove_speed_is_stale:
+            self._remove_speed_is_stale()
+            self._remove_speed_is_stale = None
+
+    def _start_speed_stale_monitor(self) -> None:
+        """Start monitoring speed sensor staleness."""
+        self._cancel_speed_stale_monitor()
+        if self._max_speed_age is None:
+            return
+
+        async def speed_is_stale(_utcnow: datetime) -> None:
+            """Speed sensor is stale."""
+            self._remove_speed_is_stale = None
+
+            async def clear_speed_sensor_state() -> None:
+                """Clear speed sensor's state."""
+                async_dispatcher_send(
+                    self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", None, None
+                )
+
+            await self.async_request_call(clear_speed_sensor_state())
+            self.async_write_ha_state()
+
+        self._remove_speed_is_stale = async_call_later(
+            self.hass, self._max_speed_age, speed_is_stale
+        )
 
     def _cancel_drive_ending_delay(self) -> None:
         """Cancel ending of driving state."""
@@ -421,6 +459,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
     def _start_drive_ending_delay(self) -> None:
         """Start delay to end driving state if configured."""
+        self._cancel_drive_ending_delay()
         if self._end_driving_delay is None:
             return
 
@@ -706,6 +745,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
             )
             self._prev_speed = speed
+            self._start_speed_stale_monitor()
         else:
             speed = self._prev_speed
 

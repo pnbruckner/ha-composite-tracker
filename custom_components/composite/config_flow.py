@@ -60,6 +60,7 @@ from .const import (
     CONF_END_DRIVING_DELAY,
     CONF_ENTITY,
     CONF_ENTITY_PICTURE,
+    CONF_MAX_SPEED_AGE,
     CONF_REQ_MOVEMENT,
     CONF_USE_PICTURE,
     DOMAIN,
@@ -81,6 +82,7 @@ def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 (
                     CONF_ENTITY_ID,
                     CONF_REQ_MOVEMENT,
+                    CONF_MAX_SPEED_AGE,
                     CONF_DRIVING_SPEED,
                     CONF_END_DRIVING_DELAY,
                     CONF_ENTITY_PICTURE,
@@ -201,6 +203,10 @@ class CompositeFlow(ConfigEntryBaseFlow):
 
         if user_input is not None:
             self.options[CONF_REQ_MOVEMENT] = user_input[CONF_REQ_MOVEMENT]
+            if CONF_MAX_SPEED_AGE in user_input:
+                self.options[CONF_MAX_SPEED_AGE] = user_input[CONF_MAX_SPEED_AGE]
+            elif CONF_MAX_SPEED_AGE in self.options:
+                del self.options[CONF_MAX_SPEED_AGE]
             if CONF_DRIVING_SPEED in user_input:
                 self.options[CONF_DRIVING_SPEED] = SpeedConverter.convert(
                     user_input[CONF_DRIVING_SPEED],
@@ -257,6 +263,11 @@ class CompositeFlow(ConfigEntryBaseFlow):
                     )
                 ),
                 vol.Required(CONF_REQ_MOVEMENT): BooleanSelector(),
+                vol.Optional(CONF_MAX_SPEED_AGE): DurationSelector(
+                    DurationSelectorConfig(
+                        enable_day=False, enable_millisecond=False, allow_negative=False
+                    )
+                ),
                 vol.Optional(CONF_DRIVING_SPEED): NumberSelector(
                     NumberSelectorConfig(
                         unit_of_measurement=self._speed_uom,
@@ -270,6 +281,8 @@ class CompositeFlow(ConfigEntryBaseFlow):
                 CONF_ENTITY_ID: self._entity_ids,
                 CONF_REQ_MOVEMENT: self.options[CONF_REQ_MOVEMENT],
             }
+            if CONF_MAX_SPEED_AGE in self.options:
+                suggested_values[CONF_MAX_SPEED_AGE] = self.options[CONF_MAX_SPEED_AGE]
             if CONF_DRIVING_SPEED in self.options:
                 suggested_values[CONF_DRIVING_SPEED] = SpeedConverter.convert(
                     self.options[CONF_DRIVING_SPEED],

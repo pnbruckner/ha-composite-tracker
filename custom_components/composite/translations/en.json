@@ -63,6 +63,7 @@
                 "data": {
                     "driving_speed": "Driving speed",
                     "entity_id": "Input entities",
+                    "max_speed_age": "Max time between speed sensor updates",
                     "require_movement": "Require movement"
                 }
             }
@@ -153,6 +154,7 @@
                 "data": {
                     "driving_speed": "Driving speed",
                     "entity_id": "Input entities",
+                    "max_speed_age": "Max time between speed sensor updates",
                     "require_movement": "Require movement"
                 }
             }
