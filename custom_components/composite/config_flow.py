@@ -302,7 +302,9 @@ class CompositeFlow(ConfigEntryBaseFlow):
         """Get end driving delay."""
         if user_input is not None:
             if CONF_END_DRIVING_DELAY in user_input:
-                self.options[CONF_END_DRIVING_DELAY] = user_input[CONF_END_DRIVING_DELAY]
+                self.options[CONF_END_DRIVING_DELAY] = user_input[
+                    CONF_END_DRIVING_DELAY
+                ]
             elif CONF_END_DRIVING_DELAY in self.options:
                 del self.options[CONF_END_DRIVING_DELAY]
             return await self.async_step_ep_menu()
