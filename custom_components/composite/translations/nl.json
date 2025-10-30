@@ -20,7 +20,8 @@
                 "data": {
                     "driving_speed": "Rijsnelheid",
                     "entity_id": "Voer entiteiten in",
-                    "require_movement": "Vereist beweging"
+                    "require_movement": "Vereist beweging",
+                    "show_unknown_as_0": "Toon onbekende snelheid als 0,0"
                 }
             },
             "use_picture": {
@@ -74,7 +75,8 @@
                 "data": {
                     "driving_speed": "Rijsnelheid",
                     "entity_id": "Voer entiteiten in",
-                    "require_movement": "Vereist beweging"
+                    "require_movement": "Vereist beweging",
+                    "show_unknown_as_0": "Toon onbekende snelheid als 0,0"
                 }
             },
             "use_picture": {

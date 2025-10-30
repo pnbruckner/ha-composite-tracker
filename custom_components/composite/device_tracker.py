@@ -416,15 +416,20 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
             async def clear_speed_sensor_state() -> None:
                 """Clear speed sensor's state."""
-                async_dispatcher_send(
-                    self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", None, None
-                )
+                self._send_speed(None, None)
 
             await self.async_request_call(clear_speed_sensor_state())
             self.async_write_ha_state()
 
         self._remove_speed_is_stale = async_call_later(
             self.hass, self._max_speed_age, speed_is_stale
+        )
+
+    def _send_speed(self, speed: float | None, angle: int | None) -> None:
+        """Send values to speed sensor."""
+        _LOGGER.debug("%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle)
+        async_dispatcher_send(
+            self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
         )
 
     def _cancel_drive_ending_delay(self) -> None:
@@ -717,12 +722,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                             angle += 360
 
         if use_new_speed:
-            _LOGGER.debug(
-                "%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle
-            )
-            async_dispatcher_send(
-                self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
-            )
+            self._send_speed(speed, angle)
             self._prev_speed = speed
             self._start_speed_stale_monitor()
         else:

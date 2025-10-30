@@ -17,7 +17,12 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import ATTR_ANGLE, ATTR_DIRECTION, SIG_COMPOSITE_SPEED
+from .const import (
+    ATTR_ANGLE,
+    ATTR_DIRECTION,
+    CONF_SHOW_UNKNOWN_AS_0,
+    SIG_COMPOSITE_SPEED,
+)
 
 
 async def async_setup_entry(
@@ -31,7 +36,9 @@ class CompositeSensor(SensorEntity):
     """Composite Sensor Entity."""
 
     _attr_should_poll = False
+    _raw_value: float | None = None
     _ok_to_write_state = False
+    _show_unknown_as_0: bool
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize composite sensor entity."""
@@ -72,6 +79,15 @@ class CompositeSensor(SensorEntity):
             )
         )
 
+    @property
+    def native_value(self) -> float | None:
+        """Return the value reported by the sensor."""
+        if self._raw_value is not None:
+            return self._raw_value
+        if self._show_unknown_as_0:
+            return 0
+        return None
+
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
@@ -80,32 +96,15 @@ class CompositeSensor(SensorEntity):
                 self._config_entry_updated
             )
         )
+        await self.async_request_call(self._process_config_options())
         self._ok_to_write_state = True
 
-    async def _update(self, value: float | None, angle: int | None) -> None:
-        """Update sensor with new value."""
-
-        def direction(angle: int | None) -> str | None:
-            """Determine compass direction."""
-            if angle is None:
-                return None
-            return ("N", "NE", "E", "SE", "S", "SW", "W", "NW", "N")[
-                int((angle + 360 / 16) // (360 / 8))
-            ]
-
-        self._attr_native_value = value
-        self._attr_extra_state_attributes = {
-            ATTR_ANGLE: angle,
-            ATTR_DIRECTION: direction(angle),
-        }
-        # It's possible for dispatcher signal to arrive, causing this method to execute,
-        # before this sensor entity has been completely "added to hass", meaning
-        # self.hass might not yet have been initialized, causing this call to
-        # async_write_ha_state to fail. We still update our state, so that the call to
-        # async_write_ha_state at the end of the "add to hass" process will see it. Once
-        # added to hass, we can go ahead and write the state here for future updates.
-        if self._ok_to_write_state:
-            self.async_write_ha_state()
+    async def _process_config_options(self) -> None:
+        """Process options from config entry."""
+        options = cast(ConfigEntry, self.platform.config_entry).options
+        # For backward compatibility, if the option is not present, interpret that as
+        # the same as False.
+        self._show_unknown_as_0 = options.get(CONF_SHOW_UNKNOWN_AS_0, False)
 
     async def _config_entry_updated(
         self, hass: HomeAssistant, entry: ConfigEntry
@@ -120,3 +119,30 @@ class CompositeSensor(SensorEntity):
             er.async_get(hass).async_update_entity(
                 self.entity_id, original_name=self.name
             )
+        await self.async_request_call(self._process_config_options())
+        self.async_write_ha_state()
+
+    async def _update(self, value: float | None, angle: int | None) -> None:
+        """Update sensor with new value."""
+
+        def direction(angle: int | None) -> str | None:
+            """Determine compass direction."""
+            if angle is None:
+                return None
+            return ("N", "NE", "E", "SE", "S", "SW", "W", "NW", "N")[
+                int((angle + 360 / 16) // (360 / 8))
+            ]
+
+        self._raw_value = value
+        self._attr_extra_state_attributes = {
+            ATTR_ANGLE: angle,
+            ATTR_DIRECTION: direction(angle),
+        }
+        # It's possible for dispatcher signal to arrive, causing this method to execute,
+        # before this sensor entity has been completely "added to hass", meaning
+        # self.hass might not yet have been initialized, causing this call to
+        # async_write_ha_state to fail. We still update our state, so that the call to
+        # async_write_ha_state at the end of the "add to hass" process will see it. Once
+        # added to hass, we can go ahead and write the state here for future updates.
+        if self._ok_to_write_state:
+            self.async_write_ha_state()
