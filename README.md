@@ -45,7 +45,7 @@ After it has been downloaded you will need to restart Home Assistant.
 
 ### Versions
 
-This custom integration supports HomeAssistant versions 2024.8.3 or newer.
+This custom integration supports HomeAssistant versions 2024.11.0 or newer.
 
 ## Configuration
 
@@ -74,6 +74,7 @@ composite:
 
 - **default_options** (*Optional*): Defines default values for corresponding options under **trackers**.
   - **require_movement** (*Optional*): Default is `false`.
+  - **show_unknown_as_0** (*Optional*)): Default is `false`.
   - **max_speed_age** (*Optional*)
   - **driving_speed** (*Optional*)
   - **end_driving_delay** (*Optoinal*)
@@ -86,6 +87,7 @@ composite:
 - **name**: Friendly name of composite device.
 - **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in a tracker entity ID of `device_tracker.my_name`. The speed sensor's object ID will be the same as for the device tracker, but with a suffix of "`_speed`" added (e.g., `sensor.my_name_speed`.)
 - **require_movement** (*Optional*): `true` or `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
+- **show_unknown_as_0** (*Optional*): `true` or `false`. If `true`, when the speed sensor's state would normally be `unknown` it will be set to `0.0` instead. This can help, e.g., when using the speed sensor as input to the [Statistics](https://www.home-assistant.io/integrations/statistics/) integration.
 - **max_speed_age** (*Optional*): If set, defines the maximum amount of time between speed sensor updates. When this time is exceeded, speed sensor's state will be cleared (i.e., state will become `unknown` and `angle` & `direction` attributes will become null.)
 - **driving_speed** (*Optional*): Defines a driving speed threshold (in MPH or KPH, depending on general unit system setting.) If set, and current speed is at or above this value, and tracker is not in a zone, then the state of the tracker will be set to `driving`.
 - **end_driving_delay** (*Optional*): If set, defines the amount of time to wait before changing state from `driving` (i.e., Driving) back to `not_home` (i.e., Away) after speed falls below set `driving_speed`. This can prevent state changing back and forth when, e.g., slowing for a turn or stopping at a traffic light. If not set, state will change back to `not_home` immediately after speed drops below threshold. May only be used if `driving_speed` is set.
@@ -155,6 +157,7 @@ direction | Compass heading of movement direction (if moving.)
 composite:
   default_options:
     require_movement: true
+    show_unknown_as_0: true
     max_speed_age:
       minutes: 5
     driving_speed: 15
