@@ -1,0 +1,172 @@
+{
+    "title": "Composito",
+    "config": {
+        "step": {
+            "all_states": {
+                "title": "Usa tutti gli stati",
+                "description": "Seleziona le entità per le quali devono essere utilizzati tutti gli stati.\nNota che questo si applica solo alle entità il cui tipo di sorgente non è GPS.",
+                "data": {
+                    "entity": "Entità"
+                }
+            },
+            "end_driving_delay": {
+                "title": "Ritardo fine guida",
+                "description": "Tempo per il quale è mantenuto lo stato \"Alla guida\" dopo che la velocità scende al di sotto della velocità di guida configurata.\n\nLascia vuoto per tornare immediatamente a \"Fuori casa\". Se utilizzato, un buon punto di partenza è 2 minuti.",
+                "data": {
+                    "end_driving_delay": "Ritardo fine guida"
+                }
+            },
+            "ep_input_entity": {
+                "title": "Entità immagine",
+                "description": "Scegli l'entità la cui immagine verrà utilizzata per il composito.\nPuoi lasciare il campo vuoto.",
+                "data": {
+                    "entity": "Entità"
+                }
+            },
+            "ep_local_file": {
+                "title": "File immagine locale",
+                "description": "Scegli il file locale da utilizzare per il composito.\nPuoi lasciare il campo vuoto.",
+                "data": {
+                    "entity_picture": "File locale"
+                }
+            },
+            "ep_menu": {
+                "title": "Immagine entità composito",
+                "description": "Scegli la sorgente dell'immagine dell'entità del composito.\n\nAttualmente: {cur_source}",
+                "menu_options": {
+                    "all_states": "Mantieni l'impostazione corrente",
+                    "ep_local_file": "Seleziona file locale",
+                    "ep_input_entity": "Usa l'immagine di un'entità di input",
+                    "ep_none": "Non usare un'immagine entità",
+                    "ep_upload_file": "Carica un file"
+                }
+            },
+            "ep_upload_file": {
+                "title": "Carica file immagine",
+                "description": "Carica un file da utilizzare per il composito.\nPuoi lasciare il campo vuoto.",
+                "data": {
+                    "entity_picture": "File immagine"
+                }
+            },
+            "ep_warn": {
+                "title": "Directory caricamento file creata",
+                "description": "La directory /local ({local_dir}) è stata creata.\nPotrebbe essere necessario riavviare Home Assistant affinché i file caricati siano utilizzabili."
+            },
+            "name": {
+                "title": "Nome",
+                "data": {
+                    "name": "Nome"
+                }
+            },
+            "options": {
+                "title": "Opzioni composito",
+                "data": {
+                    "driving_speed": "Velocità di guida",
+                    "entity_id": "Entità di input",
+                    "max_speed_age": "Tempo massimo tra aggiornamenti del sensore di velocità",
+                    "require_movement": "Richiedi movimento"
+                }
+            }
+        },
+        "error": {
+            "at_least_one_entity": "Devi selezionare almeno un'entità di input.",
+            "name_used": "Il nome è già stato utilizzato."
+        }
+    },
+    "entity": {
+        "device_tracker": {
+            "tracker": {
+                "state": {
+                    "driving": "Alla guida"
+                },
+                "state_attributes": {
+                    "battery_charging": {"name": "Batteria in carica"},
+                    "entities": {"name": "Entità rilevate"},
+                    "last_entity_id": {"name": "Ultima entità"},
+                    "last_seen": {"name": "Ultima rilevazione"}
+                }
+            }
+        },
+        "sensor": {
+            "speed": {
+                "name": "Velocità {name}",
+                "state_attributes": {
+                    "angle": {"name": "Angolo"},
+                    "direction": {"name": "Direzione"}
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "all_states": {
+                "title": "Usa tutti gli stati",
+                "description": "Seleziona le entità per le quali devono essere utilizzati tutti gli stati.\nNota che questo si applica solo alle entità il cui tipo di sorgente non è GPS.",
+                "data": {
+                    "entity": "Entità"
+                }
+            },
+            "end_driving_delay": {
+                "title": "Ritardo fine guida",
+                "description": "Tempo per il quale è mantenuto lo stato \"Alla guida\" dopo che la velocità scende al di sotto della velocità di guida configurata.\n\nLascia vuoto per tornare immediatamente a \"Fuori casa\". Se utilizzato, un buon punto di partenza è 2 minuti.",
+                "data": {
+                    "end_driving_delay": "Ritardo fine guida"
+                }
+            },
+            "ep_input_entity": {
+                "title": "Entità immagine",
+                "description": "Scegli l'entità la cui immagine verrà utilizzata per il composito.\nPuoi lasciare il campo vuoto.",
+                "data": {
+                    "entity": "Entità"
+                }
+            },
+            "ep_local_file": {
+                "title": "File immagine locale",
+                "description": "Scegli il file locale da utilizzare per il composito.\nPuoi lasciare il campo vuoto.",
+                "data": {
+                    "entity_picture": "File locale"
+                }
+            },
+            "ep_menu": {
+                "title": "Immagine entità composito",
+                "description": "Scegli la sorgente dell'immagine dell'entità del composito.\n\nAttualmente: {cur_source}",
+                "menu_options": {
+                    "all_states": "Mantieni l'impostazione corrente",
+                    "ep_local_file": "Seleziona file locale",
+                    "ep_input_entity": "Usa l'immagine di un'entità di input",
+                    "ep_none": "Non usare un'immagine entità",
+                    "ep_upload_file": "Carica un file"
+                }
+            },
+            "ep_upload_file": {
+                "title": "Carica file immagine",
+                "description": "Carica un file da utilizzare per il composito.\nPuoi lasciare il campo vuoto.",
+                "data": {
+                    "entity_picture": "File immagine"
+                }
+            },
+            "ep_warn": {
+                "title": "Directory caricamento file creata",
+                "description": "La directory /local ({local_dir}) è stata creata.\nPotrebbe essere necessario riavviare Home Assistant affinché i file caricati siano utilizzabili."
+            },
+            "options": {
+                "title": "Opzioni composito",
+                "data": {
+                    "driving_speed": "Velocità di guida",
+                    "entity_id": "Entità di input",
+                    "max_speed_age": "Tempo massimo tra aggiornamenti del sensore di velocità",
+                    "require_movement": "Richiedi movimento"
+                }
+            }
+        },
+        "error": {
+            "at_least_one_entity": "Devi selezionare almeno un'entità di input."
+        }
+    },
+    "services": {
+        "reload": {
+            "name": "Ricarica",
+            "description": "Ricarica Composito dalla configurazione YAML."
+        }
+    }
+}
