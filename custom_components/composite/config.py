@@ -24,6 +24,7 @@ from .const import (
     CONF_ENTITY_PICTURE,
     CONF_MAX_SPEED_AGE,
     CONF_REQ_MOVEMENT,
+    CONF_SHOW_UNKNOWN_AS_0,
     CONF_TIME_AS,
     CONF_TRACKERS,
     CONF_USE_PICTURE,
@@ -142,6 +143,7 @@ def _defaults(config: dict) -> dict:
         unsupported_cfgs.add(CONF_TIME_AS)
 
     def_req_mv = config[CONF_DEFAULT_OPTIONS][CONF_REQ_MOVEMENT]
+    def_shu_az = config[CONF_DEFAULT_OPTIONS].get(CONF_SHOW_UNKNOWN_AS_0)
     def_max_sa = config[CONF_DEFAULT_OPTIONS].get(CONF_MAX_SPEED_AGE)
     def_drv_sp = config[CONF_DEFAULT_OPTIONS].get(CONF_DRIVING_SPEED)
     def_end_dd = config[CONF_DEFAULT_OPTIONS].get(CONF_END_DRIVING_DELAY)
@@ -150,6 +152,8 @@ def _defaults(config: dict) -> dict:
         if tracker.pop(CONF_TIME_AS, None):
             unsupported_cfgs.add(CONF_TIME_AS)
         tracker[CONF_REQ_MOVEMENT] = tracker.get(CONF_REQ_MOVEMENT, def_req_mv)
+        if CONF_SHOW_UNKNOWN_AS_0 not in tracker and def_shu_az is not None:
+            tracker[CONF_SHOW_UNKNOWN_AS_0] = def_shu_az
         if CONF_MAX_SPEED_AGE not in tracker and def_max_sa is not None:
             tracker[CONF_MAX_SPEED_AGE] = def_max_sa
         if CONF_DRIVING_SPEED not in tracker and def_drv_sp is not None:
@@ -200,6 +204,7 @@ _TRACKER = {
     vol.Required(CONF_ENTITY_ID): _ENTITIES,
     vol.Optional(CONF_TIME_AS): cv.string,
     vol.Optional(CONF_REQ_MOVEMENT): cv.boolean,
+    vol.Optional(CONF_SHOW_UNKNOWN_AS_0): cv.boolean,
     vol.Optional(CONF_MAX_SPEED_AGE): _POS_TIME_PERIOD,
     vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
     vol.Optional(CONF_END_DRIVING_DELAY): _POS_TIME_PERIOD,
@@ -218,6 +223,7 @@ _CONFIG_SCHEMA = vol.Schema(
                             vol.Optional(
                                 CONF_REQ_MOVEMENT, default=DEF_REQ_MOVEMENT
                             ): cv.boolean,
+                            vol.Optional(CONF_SHOW_UNKNOWN_AS_0): cv.boolean,
                             vol.Optional(CONF_MAX_SPEED_AGE): _POS_TIME_PERIOD,
                             vol.Optional(CONF_DRIVING_SPEED): vol.Coerce(float),
                             vol.Optional(CONF_END_DRIVING_DELAY): _POS_TIME_PERIOD,

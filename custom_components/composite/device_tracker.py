@@ -11,6 +11,8 @@ from math import atan2, degrees
 from types import MappingProxyType
 from typing import Any, cast
 
+from propcache.api import cached_property
+
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import (
     ATTR_BATTERY,
@@ -86,16 +88,6 @@ _RESTORE_EXTRA_ATTRS = (
     ATTR_BATTERY_CHARGING,
 )
 
-_SOURCE_TYPE_BINARY_SENSOR = BS_DOMAIN
-_STATE_BINARY_SENSOR_HOME = STATE_ON
-
-_SOURCE_TYPE_NON_GPS = (
-    _SOURCE_TYPE_BINARY_SENSOR,
-    SourceType.BLUETOOTH,
-    SourceType.BLUETOOTH_LE,
-    SourceType.ROUTER,
-)
-
 _GPS_ACCURACY_ATTRS = (ATTR_GPS_ACCURACY, ATTR_ACC)
 _BATTERY_ATTRS = (ATTR_BATTERY_LEVEL, ATTR_BATTERY)
 _CHARGING_ATTRS = (ATTR_BATTERY_CHARGING, ATTR_CHARGING)
@@ -119,8 +111,9 @@ def _nearest_second(time: datetime) -> datetime:
 class EntityStatus(Enum):
     """Input entity status."""
 
-    INACTIVE = auto()
-    ACTIVE = auto()
+    NOT_SET = auto()
+    GOOD = auto()
+    BAD = auto()
     WARNED = auto()
     SUSPEND = auto()
 
@@ -130,7 +123,7 @@ class Location:
     """Location (latitude, longitude & accuracy)."""
 
     gps: GPSType
-    accuracy: int
+    accuracy: float
 
 
 @dataclass
@@ -140,38 +133,45 @@ class EntityData:
     entity_id: str
     use_all_states: bool
     use_picture: bool
-    status: EntityStatus = EntityStatus.INACTIVE
+    _status: EntityStatus = EntityStatus.NOT_SET
     seen: datetime | None = None
-    source_type: str | None = None
+    source_type: SourceType = SourceType.GPS
     data: Location | str | None = None
+
+    @property
+    def is_good(self) -> bool:
+        """Return if last update was good."""
+        return self._status == EntityStatus.GOOD
 
     def set_params(self, use_all_states: bool, use_picture: bool) -> None:
         """Set parameters."""
         self.use_all_states = use_all_states
         self.use_picture = use_picture
 
-    def good(self, seen: datetime, source_type: str, data: Location | str) -> None:
+    def good(
+        self, seen: datetime, source_type: SourceType, data: Location | str
+    ) -> None:
         """Mark entity as good."""
-        self.status = EntityStatus.ACTIVE
+        self._status = EntityStatus.GOOD
         self.seen = seen
         self.source_type = source_type
         self.data = data
 
     def bad(self, message: str) -> None:
         """Mark entity as bad."""
-        if self.status == EntityStatus.SUSPEND:
+        if self._status == EntityStatus.SUSPEND:
             return
         msg = f"{self.entity_id} {message}"
-        if self.status == EntityStatus.WARNED:
+        if self._status == EntityStatus.WARNED:
             _LOGGER.error(msg)
-            self.status = EntityStatus.SUSPEND
+            self._status = EntityStatus.SUSPEND
         # Only warn if this is not the first state change for the entity.
-        elif self.status == EntityStatus.ACTIVE:
+        elif self._status != EntityStatus.NOT_SET:
             _LOGGER.warning(msg)
-            self.status = EntityStatus.WARNED
+            self._status = EntityStatus.WARNED
         else:
             _LOGGER.debug(msg)
-            self.status = EntityStatus.ACTIVE
+            self._status = EntityStatus.BAD
 
 
 class Attributes:
@@ -203,11 +203,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
     # State vars
     _battery_level: int | None = None
-    _source_type: str | None = None
-    _location_accuracy = 0
-    _location_name: str | None = None
-    _latitude: float | None = None
-    _longitude: float | None = None
     _prev_seen: datetime | None = None
     _prev_speed: float | None = None
 
@@ -233,7 +228,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._attr_extra_state_attributes = {}
         self._entities: dict[str, EntityData] = {}
 
-    @property
+    @cached_property
     def force_update(self) -> bool:
         """Return True if state updates should be forced."""
         return False
@@ -242,31 +237,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     def battery_level(self) -> int | None:
         """Return the battery level of the device."""
         return self._battery_level
-
-    @property
-    def source_type(self) -> str | None:  # type: ignore[override]
-        """Return the source type of the device."""
-        return self._source_type
-
-    @property
-    def location_accuracy(self) -> int:
-        """Return the location accuracy of the device."""
-        return self._location_accuracy
-
-    @property
-    def location_name(self) -> str | None:
-        """Return a location name for the current location of the device."""
-        return self._location_name
-
-    @property
-    def latitude(self) -> float | None:
-        """Return the latitude value of the device."""
-        return self._latitude
-
-    @property
-    def longitude(self) -> float | None:
-        """Rerturn the longitude value of the device."""
-        return self._longitude
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
@@ -379,10 +349,16 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         self._attr_entity_picture = last_state.attributes.get(ATTR_ENTITY_PICTURE)
         self._battery_level = last_state.attributes.get(ATTR_BATTERY_LEVEL)
-        self._source_type = last_state.attributes[ATTR_SOURCE_TYPE]
-        self._location_accuracy = last_state.attributes.get(ATTR_GPS_ACCURACY) or 0
-        self._latitude = last_state.attributes.get(ATTR_LATITUDE)
-        self._longitude = last_state.attributes.get(ATTR_LONGITUDE)
+        # Prior versions allowed a source_type of binary_sensor. To better conform to
+        # the TrackerEntity base class, inputs that do not directly map to one of the
+        # SourceType options will be represented as SourceType.ROUTER.
+        if (source_type := last_state.attributes[ATTR_SOURCE_TYPE]) in SourceType:
+            self._attr_source_type = source_type
+        else:
+            self._attr_source_type = SourceType.ROUTER
+        self._attr_location_accuracy = last_state.attributes.get(ATTR_GPS_ACCURACY) or 0
+        self._attr_latitude = last_state.attributes.get(ATTR_LATITUDE)
+        self._attr_longitude = last_state.attributes.get(ATTR_LONGITUDE)
         self._attr_extra_state_attributes = {
             k: v for k, v in last_state.attributes.items() if k in _RESTORE_EXTRA_ATTRS
         }
@@ -403,19 +379,19 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                     last_seen
                 )
                 self._prev_seen = dt_util.as_utc(last_seen)
-        if self.source_type in _SOURCE_TYPE_NON_GPS and (
+        if self.source_type != SourceType.GPS and (
             self.latitude is None or self.longitude is None
         ):
-            self._location_name = last_state.state
+            self._attr_location_name = last_state.state
 
     def _clear_state(self) -> None:
         """Clear state."""
         self._battery_level = None
-        self._source_type = None
-        self._location_accuracy = 0
-        self._location_name = None
-        self._latitude = None
-        self._longitude = None
+        self._attr_source_type = SourceType.GPS
+        self._attr_location_accuracy = 0
+        self._attr_location_name = None
+        self._attr_latitude = None
+        self._attr_longitude = None
         self._attr_extra_state_attributes = {}
         self._prev_seen = None
         self._prev_speed = None
@@ -440,15 +416,20 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
             async def clear_speed_sensor_state() -> None:
                 """Clear speed sensor's state."""
-                async_dispatcher_send(
-                    self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", None, None
-                )
+                self._send_speed(None, None)
 
             await self.async_request_call(clear_speed_sensor_state())
             self.async_write_ha_state()
 
         self._remove_speed_is_stale = async_call_later(
             self.hass, self._max_speed_age, speed_is_stale
+        )
+
+    def _send_speed(self, speed: float | None, angle: int | None) -> None:
+        """Send values to speed sensor."""
+        _LOGGER.debug("%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle)
+        async_dispatcher_send(
+            self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
         )
 
     def _cancel_drive_ending_delay(self) -> None:
@@ -469,7 +450,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
             async def end_driving() -> None:
                 """End driving state."""
-                self._location_name = None
+                self._attr_location_name = None
 
             await self.async_request_call(end_driving())
             self.async_write_ha_state()
@@ -525,16 +506,17 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         if not gps:
             with suppress(KeyError):
                 gps = new_attrs[ATTR_LAT], new_attrs[ATTR_LON]
-        gps_accuracy = cast(int | None, new_attrs.get(_GPS_ACCURACY_ATTRS))
+        gps_accuracy = cast(float | None, new_attrs.get(_GPS_ACCURACY_ATTRS))
         battery = cast(int | None, new_attrs.get(_BATTERY_ATTRS))
         charging = cast(bool | None, new_attrs.get(_CHARGING_ATTRS))
 
         # What type of tracker is this?
         if new_state.domain == BS_DOMAIN:
-            source_type: str | None = _SOURCE_TYPE_BINARY_SENSOR
+            source_type: str | None = SourceType.ROUTER.value
         else:
             source_type = new_attrs.get(
-                ATTR_SOURCE_TYPE, SourceType.GPS if gps and gps_accuracy else None
+                ATTR_SOURCE_TYPE,
+                SourceType.GPS.value if gps and gps_accuracy is not None else None,
             )
 
         if entity.use_picture:
@@ -557,7 +539,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             old_data = cast(Location | None, entity.data)
             if last_seen == old_last_seen and new_data == old_data:
                 return
-            entity.good(last_seen, source_type, new_data)
+            entity.good(last_seen, SourceType.GPS, new_data)
 
             if self._req_movement and old_data:
                 dist = distance(gps[0], gps[1], old_data.gps[0], old_data.gps[1])
@@ -569,16 +551,16 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                     )
                     return
 
-        elif source_type in _SOURCE_TYPE_NON_GPS:
+        elif source_type in SourceType:
             # Convert 'on'/'off' state of binary_sensor
             # to 'home'/'not_home'.
-            if source_type == _SOURCE_TYPE_BINARY_SENSOR:
-                if state == _STATE_BINARY_SENSOR_HOME:
+            if new_state.domain == BS_DOMAIN:
+                if state == STATE_ON:
                     state = STATE_HOME
                 else:
                     state = STATE_NOT_HOME
 
-            entity.good(last_seen, source_type, state)
+            entity.good(last_seen, SourceType(source_type), state)  # type: ignore[arg-type]
 
             if not self._use_non_gps_data(entity_id, state):
                 return
@@ -599,27 +581,24 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             # or 2) provide a location_name (that will be used as the new
             # state.)
 
-            # If router entity's state is 'home' and our current state is 'home' w/ GPS
+            # If input entity's state is 'home' and our current state is 'home' w/ GPS
             # data, use it and make source_type gps.
             if state == STATE_HOME and home_w_gps:
                 gps = cast(GPSType, (self.latitude, self.longitude))
                 gps_accuracy = self.location_accuracy
-                source_type = SourceType.GPS
+                source_type = SourceType.GPS.value
             # Otherwise, if new GPS data is valid (which is unlikely if
             # new state is not 'home'),
             # use it and make source_type gps.
             elif gps:
-                source_type = SourceType.GPS
+                source_type = SourceType.GPS.value
             # Otherwise, if new state is 'home' and old state is not 'home' w/ GPS data
             # (i.e., not 'home' or no GPS data), then use HA's configured Home location
             # and make source_type gps.
             elif state == STATE_HOME:
-                gps = cast(
-                    GPSType,
-                    (self.hass.config.latitude, self.hass.config.longitude),
-                )
+                gps = (self.hass.config.latitude, self.hass.config.longitude)
                 gps_accuracy = 0
-                source_type = SourceType.GPS
+                source_type = SourceType.GPS.value
             # Otherwise, don't use any GPS data, but set location_name to
             # new state.
             else:
@@ -647,7 +626,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             ATTR_ENTITIES: tuple(
                 entity_id
                 for entity_id, _entity in self._entities.items()
-                if _entity.source_type
+                if _entity.is_good
             ),
             ATTR_LAST_ENTITY_ID: entity_id,
             ATTR_LAST_SEEN: dt_util.as_local(_nearest_second(last_seen)),
@@ -655,7 +634,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         if charging is not None:
             attrs[ATTR_BATTERY_CHARGING] = charging
 
-        self._set_state(location_name, gps, gps_accuracy, battery, attrs, source_type)
+        self._set_state(
+            location_name, gps, gps_accuracy, battery, attrs, SourceType(source_type)  # type: ignore[arg-type]
+        )
 
         self._prev_seen = last_seen
 
@@ -663,10 +644,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self,
         location_name: str | None,
         gps: GPSType | None,
-        gps_accuracy: int | None,
+        gps_accuracy: float | None,
         battery: int | None,
         attributes: dict,
-        source_type: SourceType | str | None,
+        source_type: SourceType,
     ) -> None:
         """Set new state."""
         # Save previously "seen" values before updating for speed calculations, etc.
@@ -687,17 +668,17 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         )
 
         self._battery_level = battery
-        self._source_type = source_type
-        self._location_accuracy = gps_accuracy or 0
-        self._location_name = location_name
+        self._attr_source_type = source_type
+        self._attr_location_accuracy = gps_accuracy or 0
+        self._attr_location_name = location_name
         lat: float | None
         lon: float | None
         if gps:
             lat, lon = gps
         else:
             lat = lon = None
-        self._latitude = lat
-        self._longitude = lon
+        self._attr_latitude = lat
+        self._attr_longitude = lon
 
         self._attr_extra_state_attributes = attributes
 
@@ -706,9 +687,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         angle = None
         use_new_speed = True
         if (
-            prev_ent and self._prev_seen
-            and prev_lat is not None and prev_lon is not None
-            and lat is not None and lon is not None
+            prev_ent
+            and self._prev_seen
+            and prev_lat is not None
+            and prev_lon is not None
+            and lat is not None
+            and lon is not None
         ):
             # It's ok that last_seen is in local tz and self._prev_seen is in UTC.
             # last_seen's value will automatically be converted to UTC during the
@@ -738,12 +722,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                             angle += 360
 
         if use_new_speed:
-            _LOGGER.debug(
-                "%s: Sending speed: %s m/s, angle: %s°", self.name, speed, angle
-            )
-            async_dispatcher_send(
-                self.hass, f"{SIG_COMPOSITE_SPEED}-{self.unique_id}", speed, angle
-            )
+            self._send_speed(speed, angle)
             self._prev_speed = speed
             self._start_speed_stale_monitor()
         else:
@@ -766,17 +745,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             self._start_drive_ending_delay()
 
         if driving or self._drive_ending_delayed:
-            self._location_name = STATE_DRIVING
+            self._attr_location_name = STATE_DRIVING
 
     def _use_non_gps_data(self, entity_id: str, state: str) -> bool:
         """Determine if state should be used for non-GPS based entity."""
         if state == STATE_HOME or self._entities[entity_id].use_all_states:
             return True
-        entities = self._entities.values()
-        if any(entity.source_type == SourceType.GPS for entity in entities):
+        good_entities = (entity for entity in self._entities.values() if entity.is_good)
+        if any(entity.source_type == SourceType.GPS for entity in good_entities):
             return False
-        return all(
-            cast(str, entity.data) != STATE_HOME
-            for entity in entities
-            if entity.source_type in _SOURCE_TYPE_NON_GPS
-        )
+        return all(cast(str, entity.data) != STATE_HOME for entity in good_entities)

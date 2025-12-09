@@ -62,6 +62,7 @@ from .const import (
     CONF_ENTITY_PICTURE,
     CONF_MAX_SPEED_AGE,
     CONF_REQ_MOVEMENT,
+    CONF_SHOW_UNKNOWN_AS_0,
     CONF_USE_PICTURE,
     DOMAIN,
     MIME_TO_SUFFIX,
@@ -83,6 +84,7 @@ def split_conf(conf: dict[str, Any]) -> dict[str, dict[str, Any]]:
                     CONF_ENTITY_ID,
                     CONF_REQ_MOVEMENT,
                     CONF_MAX_SPEED_AGE,
+                    CONF_SHOW_UNKNOWN_AS_0,
                     CONF_DRIVING_SPEED,
                     CONF_END_DRIVING_DELAY,
                     CONF_ENTITY_PICTURE,
@@ -203,6 +205,12 @@ class CompositeFlow(ConfigEntryBaseFlow):
 
         if user_input is not None:
             self.options[CONF_REQ_MOVEMENT] = user_input[CONF_REQ_MOVEMENT]
+            if user_input[CONF_SHOW_UNKNOWN_AS_0]:
+                self.options[CONF_SHOW_UNKNOWN_AS_0] = True
+            elif CONF_SHOW_UNKNOWN_AS_0 in self.options:
+                # For backward compatibility, represent False as the absence of the
+                # option.
+                del self.options[CONF_SHOW_UNKNOWN_AS_0]
             if CONF_MAX_SPEED_AGE in user_input:
                 self.options[CONF_MAX_SPEED_AGE] = user_input[CONF_MAX_SPEED_AGE]
             elif CONF_MAX_SPEED_AGE in self.options:
@@ -263,6 +271,7 @@ class CompositeFlow(ConfigEntryBaseFlow):
                     )
                 ),
                 vol.Required(CONF_REQ_MOVEMENT): BooleanSelector(),
+                vol.Required(CONF_SHOW_UNKNOWN_AS_0): BooleanSelector(),
                 vol.Optional(CONF_MAX_SPEED_AGE): DurationSelector(
                     DurationSelectorConfig(
                         enable_day=False, enable_millisecond=False, allow_negative=False
@@ -280,6 +289,7 @@ class CompositeFlow(ConfigEntryBaseFlow):
             suggested_values = {
                 CONF_ENTITY_ID: self._entity_ids,
                 CONF_REQ_MOVEMENT: self.options[CONF_REQ_MOVEMENT],
+                CONF_SHOW_UNKNOWN_AS_0: self.options.get(CONF_SHOW_UNKNOWN_AS_0, False),
             }
             if CONF_MAX_SPEED_AGE in self.options:
                 suggested_values[CONF_MAX_SPEED_AGE] = self.options[CONF_MAX_SPEED_AGE]
@@ -302,7 +312,9 @@ class CompositeFlow(ConfigEntryBaseFlow):
         """Get end driving delay."""
         if user_input is not None:
             if CONF_END_DRIVING_DELAY in user_input:
-                self.options[CONF_END_DRIVING_DELAY] = user_input[CONF_END_DRIVING_DELAY]
+                self.options[CONF_END_DRIVING_DELAY] = user_input[
+                    CONF_END_DRIVING_DELAY
+                ]
             elif CONF_END_DRIVING_DELAY in self.options:
                 del self.options[CONF_END_DRIVING_DELAY]
             return await self.async_step_ep_menu()
@@ -398,7 +410,7 @@ class CompositeFlow(ConfigEntryBaseFlow):
                         options=local_files,
                         mode=SelectSelectorMode.DROPDOWN,
                     )
-                )
+                ),
             }
         )
         if local_file:

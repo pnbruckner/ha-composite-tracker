@@ -64,7 +64,8 @@
                     "driving_speed": "Driving speed",
                     "entity_id": "Input entities",
                     "max_speed_age": "Max time between speed sensor updates",
-                    "require_movement": "Require movement"
+                    "require_movement": "Require movement",
+                    "show_unknown_as_0": "Show unknown speed as 0.0"
                 }
             }
         },
@@ -155,7 +156,8 @@
                     "driving_speed": "Driving speed",
                     "entity_id": "Input entities",
                     "max_speed_age": "Max time between speed sensor updates",
-                    "require_movement": "Require movement"
+                    "require_movement": "Require movement",
+                    "show_unknown_as_0": "Show unknown speed as 0.0"
                 }
             }
         },
