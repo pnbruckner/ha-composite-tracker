@@ -26,15 +26,15 @@
             },
             "use_picture": {
                 "title": "Afbeeldingsentiteit",
-                "description": "Kies de entiteit waarvan de afbeelding voor de composiet zal worden gebruikt.\nHet is misschien geen.",
+                "description": "Kies de entiteit waarvan de afbeelding voor de composiet zal worden gebruikt.\nHet mag 'geen' zijn.",
                 "data": {
                     "entity": "Entiteit"
                 }
             }
         },
         "error": {
-            "at_least_one_entity": "Moet ten minste één invoerentiteit selecteren.",
-            "name_used": "Naam is al gebruikt."
+            "at_least_one_entity": "Selecteer ten minste één invoerentiteit.",
+            "name_used": "Naam al in gebruik."
         }
     },
     "entity": {
@@ -81,14 +81,14 @@
             },
             "use_picture": {
                 "title": "Afbeeldingsentiteit",
-                "description": "Kies de entiteit waarvan de afbeelding voor de composiet zal worden gebruikt.\nHet is misschien geen.",
+                "description": "Kies de entiteit waarvan de afbeelding voor de composiet zal worden gebruikt.\nHet is mag 'geen' zijn.",
                 "data": {
                     "entity": "Entiteit"
                 }
             }
         },
         "error": {
-            "at_least_one_entity": "Must select at least one input entity."
+            "at_least_one_entity": "Selecteer ten minste één invoerentiteit."
         }
     },
     "services": {
