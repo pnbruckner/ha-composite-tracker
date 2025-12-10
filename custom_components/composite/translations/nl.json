@@ -3,11 +3,54 @@
     "config": {
         "step": {
             "all_states": {
-                "title": "Gebruik alle staten",
-                "description": "Selecteer entiteiten waarvoor alle staten moeten worden gebruikt.\nHoud er rekening mee dat dit alleen van toepassing is op entiteiten waarvan het brontype niet GPS is.",
+                "title": "Gebruik Alle Staten",
+                "description": "Selecteer entiteiten waarvoor alle staten moeten worden gebruikt.\nMerk op dat dit alleen geldt voor entiteiten waarvan het brontype niet GPS is.",
                 "data": {
                     "entity": "Entiteit"
                 }
+            },
+            "end_driving_delay": {
+                "title": "Einde Rijden Vertraging",
+                "description": "Tijd om de staat Rijden vast te houden nadat de snelheid onder de ingestelde rijsnelheid komt.\n\nLaat leeg om direct terug te schakelen naar Afwezig. Indien gebruikt, is een goede startwaarde 2 minuten.",
+                "data": {
+                    "end_driving_delay": "Vertraging einde rijden"
+                }
+            },
+            "ep_input_entity": {
+                "title": "Afbeeldingsentiteit",
+                "description": "Kies de entiteit waarvan de afbeelding gebruikt zal worden voor de composiet.\nDit mag ook leeg zijn.",
+                "data": {
+                    "entity": "Entiteit"
+                }
+            },
+            "ep_local_file": {
+                "title": "Lokaal Afbeeldingsbestand",
+                "description": "Kies een lokaal bestand dat zal worden gebruikt voor de composiet.\nDit mag ook leeg zijn.",
+                "data": {
+                    "entity_picture": "Lokaal bestand"
+                }
+            },
+            "ep_menu": {
+                "title": "Composiet Entiteitsafbeelding",
+                "description": "Kies de bron van de entiteitsafbeelding van de composiet.\n\nHuidig: {cur_source}",
+                "menu_options": {
+                    "all_states": "Huidige instelling behouden",
+                    "ep_local_file": "Selecteer lokaal bestand",
+                    "ep_input_entity": "Gebruik de afbeelding van een invoerentiteit",
+                    "ep_none": "Geen entiteitsafbeelding gebruiken",
+                    "ep_upload_file": "Een bestand uploaden"
+                }
+            },
+            "ep_upload_file": {
+                "title": "Afbeeldingsbestand Uploaden",
+                "description": "Upload een bestand dat zal worden gebruikt voor de composiet.\nDit mag ook leeg zijn.",
+                "data": {
+                    "entity_picture": "Afbeeldingsbestand"
+                }
+            },
+            "ep_warn": {
+                "title": "Map voor Bestandsupload Aangemaakt",
+                "description": "/local map ({local_dir}) is aangemaakt.\nHome Assistant moet mogelijk opnieuw worden gestart om geüploade bestanden bruikbaar te maken."
             },
             "name": {
                 "title": "Naam",
@@ -16,25 +59,19 @@
                 }
             },
             "options": {
-                "title": "Samengestelde opties",
+                "title": "Composietopties",
                 "data": {
                     "driving_speed": "Rijsnelheid",
-                    "entity_id": "Voer entiteiten in",
-                    "require_movement": "Vereist beweging",
-                    "show_unknown_as_0": "Toon onbekende snelheid als 0,0"
-                }
-            },
-            "use_picture": {
-                "title": "Afbeeldingsentiteit",
-                "description": "Kies de entiteit waarvan de afbeelding voor de composiet zal worden gebruikt.\nHet is misschien geen.",
-                "data": {
-                    "entity": "Entiteit"
+                    "entity_id": "Invoerentiteiten",
+                    "max_speed_age": "Maximale tijd tussen updates van snelheidsensor",
+                    "require_movement": "Beweging vereisen",
+                    "show_unknown_as_0": "Onbekende snelheid als 0.0 tonen"
                 }
             }
         },
         "error": {
-            "at_least_one_entity": "Moet ten minste één invoerentiteit selecteren.",
-            "name_used": "Naam is al gebruikt."
+            "at_least_one_entity": "Er moet minstens één invoerentiteit worden geselecteerd.",
+            "name_used": "Naam is al in gebruik."
         }
     },
     "entity": {
@@ -44,8 +81,8 @@
                     "driving": "Rijden"
                 },
                 "state_attributes": {
-                    "battery_charging": {"name": "Batterij opladen"},
-                    "entities": {"name": "Entiteiten gezien"},
+                    "battery_charging": {"name": "Batterij wordt opgeladen"},
+                    "entities": {"name": "Gezien door entiteiten"},
                     "last_entity_id": {"name": "Laatste entiteit"},
                     "last_seen": {"name": "Laatst gezien"}
                 }
@@ -64,37 +101,74 @@
     "options": {
         "step": {
             "all_states": {
-                "title": "Gebruik alle staten",
-                "description": "Selecteer entiteiten waarvoor alle staten moeten worden gebruikt.\nHoud er rekening mee dat dit alleen van toepassing is op entiteiten waarvan het brontype niet GPS is.",
+                "title": "Gebruik Alle Staten",
+                "description": "Selecteer entiteiten waarvoor alle staten moeten worden gebruikt.\nMerk op dat dit alleen geldt voor entiteiten waarvan het brontype niet GPS is.",
                 "data": {
                     "entity": "Entiteit"
                 }
+            },
+            "end_driving_delay": {
+                "title": "Einde Rijden Vertraging",
+                "description": "Tijd om de staat Rijden vast te houden nadat de snelheid onder de ingestelde rijsnelheid komt.\n\nLaat leeg om direct terug te schakelen naar Afwezig. Indien gebruikt, is een goede startwaarde 2 minuten.",
+                "data": {
+                    "end_driving_delay": "Vertraging einde rijden"
+                }
+            },
+            "ep_input_entity": {
+                "title": "Afbeeldingsentiteit",
+                "description": "Kies de entiteit waarvan de afbeelding gebruikt zal worden voor de composiet.\nDit mag ook leeg zijn.",
+                "data": {
+                    "entity": "Entiteit"
+                }
+            },
+            "ep_local_file": {
+                "title": "Lokaal Afbeeldingsbestand",
+                "description": "Kies een lokaal bestand dat zal worden gebruikt voor de composiet.\nDit mag ook leeg zijn.",
+                "data": {
+                    "entity_picture": "Lokaal bestand"
+                }
+            },
+            "ep_menu": {
+                "title": "Composiet Entiteitsafbeelding",
+                "description": "Kies de bron van de entiteitsafbeelding van de composiet.\n\nHuidig: {cur_source}",
+                "menu_options": {
+                    "all_states": "Huidige instelling behouden",
+                    "ep_local_file": "Selecteer lokaal bestand",
+                    "ep_input_entity": "Gebruik de afbeelding van een invoerentiteit",
+                    "ep_none": "Geen entiteitsafbeelding gebruiken",
+                    "ep_upload_file": "Een bestand uploaden"
+                }
+            },
+            "ep_upload_file": {
+                "title": "Afbeeldingsbestand Uploaden",
+                "description": "Upload een bestand dat zal worden gebruikt voor de composiet.\nDit mag ook leeg zijn.",
+                "data": {
+                    "entity_picture": "Afbeeldingsbestand"
+                }
+            },
+            "ep_warn": {
+                "title": "Map voor Bestandsupload Aangemaakt",
+                "description": "/local map ({local_dir}) is aangemaakt.\nHome Assistant moet mogelijk opnieuw worden gestart om geüploade bestanden bruikbaar te maken."
             },
             "options": {
-                "title": "Samengestelde opties",
+                "title": "Composietopties",
                 "data": {
                     "driving_speed": "Rijsnelheid",
-                    "entity_id": "Voer entiteiten in",
-                    "require_movement": "Vereist beweging",
-                    "show_unknown_as_0": "Toon onbekende snelheid als 0,0"
-                }
-            },
-            "use_picture": {
-                "title": "Afbeeldingsentiteit",
-                "description": "Kies de entiteit waarvan de afbeelding voor de composiet zal worden gebruikt.\nHet is misschien geen.",
-                "data": {
-                    "entity": "Entiteit"
+                    "entity_id": "Invoerentiteiten",
+                    "max_speed_age": "Maximale tijd tussen updates van snelheidsensor",
+                    "require_movement": "Beweging vereisen",
+                    "show_unknown_as_0": "Onbekende snelheid als 0.0 tonen"
                 }
             }
         },
         "error": {
-            "at_least_one_entity": "Must select at least one input entity."
+            "at_least_one_entity": "Er moet minstens één invoerentiteit worden geselecteerd."
         }
     },
     "services": {
         "reload": {
             "name": "Herladen",
-            "description": "Herlaadt Composiet vanuit de YAML-configuratie."
+            "description": "Laadt de Composiet-integratie opnieuw vanuit de YAML-configuratie."
         }
     }
 }
