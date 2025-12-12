@@ -64,7 +64,8 @@
                     "driving_speed": "Velocità di guida",
                     "entity_id": "Entità di input",
                     "max_speed_age": "Tempo massimo tra aggiornamenti del sensore di velocità",
-                    "require_movement": "Richiedi movimento"
+                    "require_movement": "Richiedi movimento",
+                    "show_unknown_as_0": "Mostra 0,0 quando la velocità è sconosciuta"
                 }
             }
         },
@@ -155,7 +156,8 @@
                     "driving_speed": "Velocità di guida",
                     "entity_id": "Entità di input",
                     "max_speed_age": "Tempo massimo tra aggiornamenti del sensore di velocità",
-                    "require_movement": "Richiedi movimento"
+                    "require_movement": "Richiedi movimento",
+                    "show_unknown_as_0": "Mostra 0,0 quando la velocità è sconosciuta"
                 }
             }
         },
