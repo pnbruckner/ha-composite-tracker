@@ -34,12 +34,17 @@
                 "title": "Composite Entity Picture",
                 "description": "Choose source of composite's entity picture.\n\nCurrently: {cur_source}",
                 "menu_options": {
+                    "entity_diagnostics": "View entity health diagnostics",
                     "all_states": "Keep current setting",
                     "ep_local_file": "Select local file",
                     "ep_input_entity": "Use an input entity's picture",
                     "ep_none": "Do not use an entity picture",
                     "ep_upload_file": "Upload a file"
                 }
+            },
+            "entity_diagnostics": {
+                "title": "Entity Health Diagnostics",
+                "description": "{diagnostic_report}"
             },
             "ep_upload_file": {
                 "title": "Upload Picture File",
@@ -132,12 +137,17 @@
                 "title": "Composite Entity Picture",
                 "description": "Choose source of composite's entity picture.\n\nCurrently: {cur_source}",
                 "menu_options": {
+                    "entity_diagnostics": "View entity health diagnostics",
                     "all_states": "Keep current setting",
                     "ep_local_file": "Select local file",
                     "ep_input_entity": "Use an input entity's picture",
                     "ep_none": "Do not use an entity picture",
                     "ep_upload_file": "Upload a file"
                 }
+            },
+            "entity_diagnostics": {
+                "title": "Entity Health Diagnostics",
+                "description": "{diagnostic_report}"
             },
             "ep_upload_file": {
                 "title": "Upload Picture File",
