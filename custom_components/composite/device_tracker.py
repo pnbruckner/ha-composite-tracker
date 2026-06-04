@@ -19,8 +19,8 @@ from homeassistant.components.device_tracker import (
     ATTR_SOURCE_TYPE,
     DOMAIN as DT_DOMAIN,
     SourceType,
+    TrackerEntity,
 )
-from homeassistant.components.device_tracker.config_entry import TrackerEntity
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import (
     ATTR_BATTERY_CHARGING,
