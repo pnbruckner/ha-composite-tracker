@@ -39,7 +39,13 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State
+from homeassistant.core import (
+    Context,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    State,
+)
 from homeassistant.helpers import entity_registry as er
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -320,7 +326,11 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         async def state_listener(event: Event[EventStateChangedData]) -> None:
             """Process input entity state update."""
             await self.async_request_call(
-                self._entity_updated(event.data["entity_id"], event.data["new_state"])
+                self._entity_updated(
+                    event.data["entity_id"],
+                    event.data["new_state"],
+                    context=event.context,
+                )
             )
             self.async_write_ha_state()
 
@@ -465,7 +475,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         return self._remove_driving_ended is not None
 
     async def _entity_updated(  # noqa: C901
-        self, entity_id: str, new_state: State | None
+        self, entity_id: str, new_state: State | None, *, context: Context | None = None
     ) -> None:
         """Run when an input entity has changed state."""
         if not new_state or new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
@@ -621,6 +631,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             return
 
         _LOGGER.debug("Updating %s from %s", self.entity_id, entity_id)
+
+        if context is not None:
+            self.async_set_context(context)
 
         attrs = {
             ATTR_ENTITIES: tuple(
