@@ -1,7 +1,7 @@
 """Composite Sensor."""
 from __future__ import annotations
 
-from typing import cast
+from typing import cast, override
 
 from homeassistant.components.sensor import (
     DOMAIN as S_DOMAIN,
@@ -80,6 +80,7 @@ class CompositeSensor(SensorEntity):
         )
 
     @property
+    @override
     def native_value(self) -> float | None:
         """Return the value reported by the sensor."""
         if self._raw_value is not None:
@@ -88,6 +89,7 @@ class CompositeSensor(SensorEntity):
             return 0
         return None
 
+    @override
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()

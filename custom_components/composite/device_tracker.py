@@ -9,7 +9,7 @@ from enum import Enum, auto
 import logging
 from math import atan2, degrees
 from types import MappingProxyType
-from typing import Any, cast
+from typing import Any, cast, override
 
 from propcache.api import cached_property
 
@@ -148,7 +148,7 @@ class EntityData:
     @property
     def is_good(self) -> bool:
         """Return if last update was good."""
-        return self._status == EntityStatus.GOOD
+        return self._status is EntityStatus.GOOD
 
     def set_params(self, use_all_states: bool, use_picture: bool) -> None:
         """Set parameters."""
@@ -166,14 +166,14 @@ class EntityData:
 
     def bad(self, message: str) -> None:
         """Mark entity as bad."""
-        if self._status == EntityStatus.SUSPEND:
+        if self._status is EntityStatus.SUSPEND:
             return
         msg = f"{self.entity_id} {message}"
-        if self._status == EntityStatus.WARNED:
+        if self._status is EntityStatus.WARNED:
             _LOGGER.error(msg)
             self._status = EntityStatus.SUSPEND
         # Only warn if this is not the first state change for the entity.
-        elif self._status != EntityStatus.NOT_SET:
+        elif self._status is not EntityStatus.NOT_SET:
             _LOGGER.warning(msg)
             self._status = EntityStatus.WARNED
         else:
@@ -236,17 +236,20 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         self._entities: dict[str, EntityData] = {}
 
     @cached_property
+    @override
     def force_update(self) -> bool:
         """Return True if state updates should be forced."""
         return False
 
     @property
+    @override
     def state(self) -> str | None:
         """Return the state of the device."""
         if self._state_override is not None:
             return self._state_override
         return super().state
 
+    @override
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
@@ -259,6 +262,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         await self.async_request_call(self._restore_state())
         await self.async_request_call(self._process_config_options())
 
+    @override
     async def async_will_remove_from_hass(self) -> None:
         """Run when entity will be removed from hass."""
         if self._remove_track_states:

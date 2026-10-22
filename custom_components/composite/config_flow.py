@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from functools import cached_property  # pylint: disable=hass-deprecated-import
 import logging
 from pathlib import Path
 import shutil
-from typing import Any, cast
+from typing import Any, cast, override
 
 import filetype
+from propcache.api import cached_property
 import voluptuous as vol
 
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
@@ -531,6 +531,7 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
+    @override
     def async_get_options_flow(config_entry: ConfigEntry) -> CompositeOptionsFlow:
         """Get the options flow for this handler."""
         flow = CompositeOptionsFlow(config_entry)
@@ -539,11 +540,13 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
 
     @classmethod
     @callback
+    @override
     def async_supports_options_flow(cls, config_entry: ConfigEntry) -> bool:
         """Return options flow support for this handler."""
         return config_entry.source != SOURCE_IMPORT
 
     @property
+    @override
     def options(self) -> dict[str, Any]:
         """Return mutable copy of options."""
         return self._options
@@ -565,6 +568,7 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
             **split_conf(data),  # type: ignore[arg-type]
         )
 
+    @override
     async def async_step_user(
         self, _: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -601,6 +605,7 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
             step_id="name", data_schema=data_schema, errors=errors, last_step=False
         )
 
+    @override
     async def async_step_done(
         self, _: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -611,6 +616,7 @@ class CompositeConfigFlow(ConfigFlow, CompositeFlow, domain=DOMAIN):
 class CompositeOptionsFlow(OptionsFlowWithConfigEntry, CompositeFlow):
     """Composite integration options flow."""
 
+    @override
     async def async_step_done(
         self, _: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
