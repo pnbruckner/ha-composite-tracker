@@ -21,6 +21,7 @@ from homeassistant.components.device_tracker import (
     SourceType,
     TrackerEntity,
 )
+from homeassistant.components.zone import async_active_zone
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import (
     ATTR_BATTERY_CHARGING,
@@ -209,6 +210,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     _unrecorded_attributes = frozenset({ATTR_ENTITIES, ATTR_ENTITY_PICTURE})
 
     # State vars
+    _last_driving_context: Context | None = None
     _state_override: str | None = None
     _prev_seen: datetime | None = None
     _prev_speed: float | None = None
@@ -402,6 +404,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
     def _clear_state(self) -> None:
         """Clear state."""
+        self._last_driving_context = None
         self._state_override = None
         self._attr_source_type = SourceType.GPS
         self._attr_location_accuracy = 0
@@ -434,7 +437,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 self._send_speed(None, None)
 
             await self.async_request_call(clear_speed_sensor_state())
-            self.async_write_ha_state()
 
         self._remove_speed_is_stale = async_call_later(
             self.hass, self._max_speed_age, speed_is_stale
@@ -466,6 +468,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             async def end_driving() -> None:
                 """End driving state."""
                 self._state_override = None
+                if self._last_driving_context is not None:
+                    # Set context to last context that resulted in driving to be true.
+                    # This will allow user to see which input state change ultimately
+                    # resulted in state to change back from "driving" (once the delay
+                    # elapsed.)
+                    self.async_set_context(self._last_driving_context)
+                    self._last_driving_context = None
 
             await self.async_request_call(end_driving())
             self.async_write_ha_state()
@@ -584,7 +593,10 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 gps = gps_accuracy = None
 
             # Is current state home w/ GPS data?
-            if home_w_gps := self._state_override is None and self.state == STATE_HOME:
+            if (
+                home_w_gps := self._state_override is None
+                and super().state == STATE_HOME
+            ):
                 if self.latitude is None or self.longitude is None:
                     _LOGGER.warning("%s: Unexpectedly home without GPS data", self.name)
                     home_w_gps = False
@@ -636,9 +648,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         _LOGGER.debug("Updating %s from %s", self.entity_id, entity_id)
 
-        if context is not None:
-            self.async_set_context(context)
-
         attrs = {
             ATTR_ENTITIES: tuple(
                 entity_id
@@ -654,13 +663,14 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             attrs[ATTR_BATTERY_LEVEL] = battery
 
         self._set_state(
-            state_override, gps, gps_accuracy, attrs, SourceType(source_type)  # type: ignore[arg-type]
+            context, state_override, gps, gps_accuracy, attrs, SourceType(source_type)  # type: ignore[arg-type]
         )
 
         self._prev_seen = last_seen
 
     def _set_state(
         self,
+        context: Context | None,
         state_override: str | None,
         gps: GPSType | None,
         gps_accuracy: float | None,
@@ -668,6 +678,9 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         source_type: SourceType,
     ) -> None:
         """Set new state."""
+        if context is not None:
+            self.async_set_context(context)
+
         # Save previously "seen" values before updating for speed calculations, etc.
         prev_ent: str | None
         prev_lat: float | None
@@ -687,7 +700,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         self._attr_source_type = source_type
         self._attr_location_accuracy = gps_accuracy or 0
-        self._state_override = state_override
         lat: float | None
         lon: float | None
         if gps:
@@ -745,9 +757,20 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         else:
             speed = self._prev_speed
 
+        # Determine if new location is in a zone (i.e., would not be "not_home".)
+        # NOTE: Cannot use self.state, or even super().state, because device_tracker
+        #       does not determine active zone until writing state.
+        in_a_zone = (
+            lat is not None
+            and lon is not None
+            and async_active_zone(self.hass, lat, lon, gps_accuracy or 0) is not None
+        )
+
         # Only set state to driving if it's currently "away" (i.e., not in a zone.)
-        if self.state != STATE_NOT_HOME:
+        if state_override is not None or in_a_zone:
+            self._state_override = state_override
             self._cancel_drive_ending_delay()
+            self._last_driving_context = None
             return
 
         driving = (
@@ -758,6 +781,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
 
         if driving:
             self._cancel_drive_ending_delay()
+            self._last_driving_context = context
         elif was_driving:
             self._start_drive_ending_delay()
 
