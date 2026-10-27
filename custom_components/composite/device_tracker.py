@@ -76,6 +76,7 @@ from .const import (
     CONF_USE_PICTURE,
     MIN_ANGLE_SPEED,
     MIN_SPEED_SECONDS,
+    SIG_COMPOSITE_BAT_LVL,
     SIG_COMPOSITE_SPEED,
     STATE_DRIVING,
 )
@@ -533,6 +534,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         gps_accuracy = cast(float | None, new_attrs.get(_GPS_ACCURACY_ATTRS))
         battery = cast(int | None, new_attrs.get(_BATTERY_ATTRS))
         charging = cast(bool | None, new_attrs.get(_CHARGING_ATTRS))
+
+        # Even if device_tracker might not update for various reasons, go ahead and
+        # update battery_level sensor with new value.
+        async_dispatcher_send(
+            self.hass, f"{SIG_COMPOSITE_BAT_LVL}-{self.unique_id}", battery
+        )
 
         # What type of tracker is this?
         if new_state.domain == BS_DOMAIN:
