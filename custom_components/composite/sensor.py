@@ -35,6 +35,7 @@ async def async_setup_entry(
 class CompositeSensor(SensorEntity):
     """Composite Sensor Entity."""
 
+    _attr_icon = "mdi:car-speed-limiter"
     _attr_should_poll = False
     _raw_value: float | None = None
     _ok_to_write_state = False
@@ -46,11 +47,11 @@ class CompositeSensor(SensorEntity):
             entity_description = SensorEntityDescription(
                 key="speed",
                 device_class=SensorDeviceClass.SPEED,
-                icon="mdi:car-speed-limiter",
                 name=cast(str, entry.data[CONF_NAME]) + " Speed",
                 translation_key="speed",
                 native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
                 state_class=SensorStateClass.MEASUREMENT,
+                suggested_display_precision=1,
             )
             obj_id = (signal := cast(str, entry.data[CONF_ID])) + "_speed"
             self.entity_id = f"{S_DOMAIN}.{obj_id}"
@@ -59,11 +60,11 @@ class CompositeSensor(SensorEntity):
             entity_description = SensorEntityDescription(
                 key="speed",
                 device_class=SensorDeviceClass.SPEED,
-                icon="mdi:car-speed-limiter",
                 has_entity_name=True,
                 translation_key="speed",
                 native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
                 state_class=SensorStateClass.MEASUREMENT,
+                suggested_display_precision=1,
             )
             self._attr_translation_placeholders = {"name": entry.title}
             self._attr_unique_id = signal = entry.entry_id
@@ -136,6 +137,14 @@ class CompositeSensor(SensorEntity):
             ]
 
         self._raw_value = value
+        if value is None or value < 4.5:
+            self._attr_icon = "mdi:car-speed-limiter"
+        elif value < 13.4:
+            self._attr_icon = "mdi:speedometer-slow"
+        elif value < 24.6:
+            self._attr_icon = "mdi:speedometer-medium"
+        else:
+            self._attr_icon = "mdi:speedometer"
         self._attr_extra_state_attributes = {
             ATTR_ANGLE: angle,
             ATTR_DIRECTION: direction(angle),

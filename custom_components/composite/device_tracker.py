@@ -575,15 +575,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                     return
 
         elif source_type in SourceType:
-            # Convert 'on'/'off' state of binary_sensor
-            # to 'home'/'not_home'.
-            if new_state.domain == BS_DOMAIN:
-                if state == STATE_ON:
-                    state = STATE_HOME
-                else:
-                    state = STATE_NOT_HOME
+            assert source_type is not None
 
-            entity.good(last_seen, SourceType(source_type), state)  # type: ignore[arg-type]
+            # Convert 'on'/'off' state of binary_sensor to 'home'/'not_home'.
+            if new_state.domain == BS_DOMAIN:
+                state = STATE_HOME if state == STATE_ON else STATE_NOT_HOME
+
+            entity.good(last_seen, SourceType(source_type), state)
 
             if not self._use_non_gps_data(entity_id, state):
                 return
@@ -600,12 +598,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 if self.latitude is None or self.longitude is None:
                     _LOGGER.warning("%s: Unexpectedly home without GPS data", self.name)
                     home_w_gps = False
-
-            # It's important, for this composite tracker, to avoid the
-            # component level code's "stale processing." This can be done
-            # one of two ways: 1) provide GPS data w/ source_type of gps,
-            # or 2) provide a state override (that will be used as the new
-            # state).
 
             # If input entity's state is 'home' and our current state is 'home' w/ GPS
             # data, use it and make source_type gps.
@@ -663,7 +655,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             attrs[ATTR_BATTERY_LEVEL] = battery
 
         self._set_state(
-            context, state_override, gps, gps_accuracy, attrs, SourceType(source_type)  # type: ignore[arg-type]
+            context, state_override, gps, gps_accuracy, attrs, SourceType(source_type)
         )
 
         self._prev_seen = last_seen
