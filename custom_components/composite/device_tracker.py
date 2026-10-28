@@ -17,6 +17,7 @@ from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import (
     ATTR_BATTERY,
     ATTR_SOURCE_TYPE,
+    ATTR_TRACKING_TYPE,
     DOMAIN as DT_DOMAIN,
     SourceType,
     TrackerEntity,
@@ -93,8 +94,6 @@ _RESTORE_EXTRA_ATTRS = (
     ATTR_ENTITIES,
     ATTR_LAST_ENTITY_ID,
     ATTR_LAST_SEEN,
-    ATTR_BATTERY_LEVEL,
-    ATTR_BATTERY_CHARGING,
 )
 
 _GPS_ACCURACY_ATTRS = (ATTR_GPS_ACCURACY, ATTR_ACC)
@@ -208,7 +207,15 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     """Composite Device Tracker."""
 
     _attr_translation_key = "tracker"
-    _unrecorded_attributes = frozenset({ATTR_ENTITIES, ATTR_ENTITY_PICTURE})
+    _unrecorded_attributes = frozenset(
+        {
+            ATTR_BATTERY_CHARGING,
+            ATTR_BATTERY_LEVEL,
+            ATTR_ENTITIES,
+            ATTR_ENTITY_PICTURE,
+            ATTR_TRACKING_TYPE,
+        }
+    )
 
     # State vars
     _last_driving_context: Context | None = None
