@@ -45,7 +45,7 @@ After it has been downloaded you will need to restart Home Assistant.
 
 ### Versions
 
-This custom integration supports HomeAssistant versions 2024.11.0 or newer.
+This custom integration supports HomeAssistant versions 2026.7 or newer.
 
 ## Configuration
 
