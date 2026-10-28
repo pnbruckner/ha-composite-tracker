@@ -1,6 +1,4 @@
 """Composite Sensor."""
-from __future__ import annotations
-
 from typing import cast, override
 
 from homeassistant.components.sensor import (

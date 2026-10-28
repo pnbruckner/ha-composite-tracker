@@ -1,6 +1,4 @@
 """Composite config validation."""
-from __future__ import annotations
-
 from contextlib import suppress
 from datetime import timedelta
 import logging

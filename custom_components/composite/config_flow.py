@@ -1,6 +1,4 @@
 """Config flow for Composite integration."""
-from __future__ import annotations
-
 from abc import abstractmethod
 import logging
 from pathlib import Path

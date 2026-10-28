@@ -1,6 +1,4 @@
 """A Device Tracker platform that combines one or more device trackers."""
-from __future__ import annotations
-
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
