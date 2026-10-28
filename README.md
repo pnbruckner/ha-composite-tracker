@@ -2,7 +2,7 @@
 
 This integration creates a composite `device_tracker` entity from one or more other entities. It will update whenever one of the watched entities updates, taking the "last seen" (and possibly GPS and other) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" entities update irregularly.
 
-It will also create a `sensor` entity that indicates the speed of the device.
+It also creates `sensor` entities that indicate the speed and battery level of the device.
 
 Currently any entity that has "GPS" attributes (`gps_accuracy` or `acc`, and either `latitude` & `longitude` or `lat` & `lon`), or any `device_tracker` entity with a `source_type` attribute of `bluetooth`, `bluetooth_le`, `gps` or `router`, or any `binary_sensor` entity, can be used as an input entity.
 
@@ -85,7 +85,7 @@ composite:
 
 - **entity_id**: Specifies the watched entities. Can be an entity ID, a dictionary (see [Entity Dictionary](#entity-dictionary)), or a list containing any combination of these.
 - **name**: Friendly name of composite device.
-- **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in a tracker entity ID of `device_tracker.my_name`. The speed sensor's object ID will be the same as for the device tracker, but with a suffix of "`_speed`" added (e.g., `sensor.my_name_speed`.)
+- **id** (*Optional*): Object ID (i.e., part of entity ID after the dot) of composite device. If not supplied, then object ID will be generated from the `name` variable. For example, `My Name` would result in a tracker entity ID of `device_tracker.my_name`. The speed sensor's object ID will be the same as for the device tracker, but with a suffix of "`_speed`" added (e.g., `sensor.my_name_speed`.) Same thing for the battery level sensor, but its suffix is "`_battery_level`" (e.g., `sensor.my_name_battery_level`.)
 - **require_movement** (*Optional*): `true` or `false`. If `true`, will skip update from a GPS-based tracker if it has not moved. Specifically, if circle defined by new GPS coordinates and accuracy overlaps circle defined by previous GPS coordinates and accuracy then update will be ignored.
 - **show_unknown_as_0** (*Optional*): `true` or `false`. If `true`, when the speed sensor's state would normally be `unknown` it will be set to `0.0` instead. This can help, e.g., when using the speed sensor as input to the [Statistics](https://www.home-assistant.io/integrations/statistics/) integration.
 - **max_speed_age** (*Optional*): If set, defines the maximum amount of time between speed sensor updates. When this time is exceeded, speed sensor's state will be cleared (i.e., state will become `unknown` and `angle` & `direction` attributes will become null.)
@@ -122,12 +122,14 @@ naive `datetime` | Assumed to be in the system's time zone (Settings -> System -
 Integrations known to provide a supported "last seen" attribute:
 
 - Google Maps (`last_seen`, [built-in](https://www.home-assistant.io/integrations/google_maps/) or [enhanced custom](https://github.com/pnbruckner/ha-google-maps))
+- [Life360](https://github.com/pnbruckner/ha-life360) (`last_seen`)
 - [Enhanced GPSLogger](https://github.com/pnbruckner/ha-gpslogger) (`last_seen`)
 - [iCould3](https://github.com/gcobb321/icloud3) (`last_timestamp`)
 
 ### Miscellaneous
 
-If a watched device has a `battery_level` or `battery` attribute, that will be used to update the composite device's `battery_level` attribute. If it has a `battery_charging` or `charging` attribute, that will be used to udpate the composite device's `battery_charging` attribute.
+If a watched device has a `battery_level` or `battery` attribute, that will be used to update the composite device's `battery_level` attribute and the associated battery level sensor.
+If it has a `battery_charging` or `charging` attribute, that will be used to udpate the composite device's `battery_charging` attribute.
 
 ## `device_tracker` Attributes
 
