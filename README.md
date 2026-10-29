@@ -4,7 +4,7 @@ This integration creates a composite `device_tracker` entity from one or more ot
 
 It also creates `sensor` entities that indicate the speed and battery level of the device.
 
-Currently any entity that has "GPS" attributes (`gps_accuracy` or `acc`, and either `latitude` & `longitude` or `lat` & `lon`), or any `device_tracker` entity with a `source_type` attribute of `bluetooth`, `bluetooth_le`, `gps` or `router`, or any `binary_sensor` entity, can be used as an input entity.
+Currently any entity that has "GPS" attributes (`gps_accuracy` or `acc`, and either `latitude` & `longitude` or `lat` & `lon`), or any `device_tracker` entity with a `source_type` attribute of `bluetooth`, `bluetooth_le`, `gps` or `router`, or any `binary_sensor` or `input_boolean` entity, can be used as an input entity.
 
 ## Installation
 
@@ -144,7 +144,7 @@ last_entity_id | ID of the last entity to update the composite device.
 last_seen | Date and time when current location information was last updated.
 latitude | Latitude of current location (if available.)
 longitude | Longitude of current location (if available.)
-source_type | Source of current location information: `binary_sensor`, `bluetooth`, `bluetooth_le`, `gps` or `router`.
+source_type | Source of current location information: `bluetooth`, `bluetooth_le`, `gps` or `router`.
 
 ## Speed `sensor` Attributes
 
