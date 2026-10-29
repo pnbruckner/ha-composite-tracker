@@ -20,6 +20,7 @@ from homeassistant.components.device_tracker import (
     SourceType,
     TrackerEntity,
 )
+from homeassistant.components.input_boolean import DOMAIN as IB_DOMAIN
 from homeassistant.components.zone import async_active_zone
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import (
@@ -549,7 +550,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             )
 
         # What type of tracker is this?
-        if new_state.domain == BS_DOMAIN:
+        if new_state.domain in (BS_DOMAIN, IB_DOMAIN):
             source_type: str | None = SourceType.ROUTER.value
         else:
             source_type = new_attrs.get(
@@ -592,7 +593,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             assert source_type is not None
 
             # Convert 'on'/'off' state of binary_sensor to 'home'/'not_home'.
-            if new_state.domain == BS_DOMAIN:
+            if new_state.domain in (BS_DOMAIN, IB_DOMAIN):
                 state = STATE_HOME if state == STATE_ON else STATE_NOT_HOME
 
             entity.good(last_seen, SourceType(source_type), state)

@@ -12,6 +12,7 @@ import voluptuous as vol
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import DOMAIN as DT_DOMAIN
 from homeassistant.components.file_upload import process_uploaded_file
+from homeassistant.components.input_boolean import DOMAIN as IB_DOMAIN
 from homeassistant.config_entries import (
     SOURCE_IMPORT,
     ConfigEntry,
@@ -247,7 +248,7 @@ class CompositeFlow(ConfigEntryBaseFlow):
 
         def entity_filter(state: State) -> bool:
             """Return if entity should be included in input list."""
-            if state.domain in (BS_DOMAIN, DT_DOMAIN):
+            if state.domain in (BS_DOMAIN, DT_DOMAIN, IB_DOMAIN):
                 return True
             attributes = state.attributes
             if ATTR_GPS_ACCURACY not in attributes and ATTR_ACC not in attributes:
