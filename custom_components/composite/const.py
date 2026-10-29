@@ -9,6 +9,8 @@ DEF_REQ_MOVEMENT = False
 MIN_SPEED_SECONDS = 3
 MIN_ANGLE_SPEED = 1  # meters / second
 
+MAX_BAT_LVL_UPDATE_PERIOD = 30 * 60  # seconds
+
 SIG_COMPOSITE_BAT_LVL = "composite_bat_lvl"
 SIG_COMPOSITE_SPEED = "composite_speed"
 

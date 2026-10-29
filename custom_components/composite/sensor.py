@@ -1,4 +1,6 @@
 """Composite Sensor."""
+from collections.abc import Callable
+from datetime import datetime
 from typing import cast, override
 
 from homeassistant.components.sensor import (
@@ -14,11 +16,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 
 from .const import (
     ATTR_ANGLE,
     ATTR_DIRECTION,
     CONF_SHOW_UNKNOWN_AS_0,
+    MAX_BAT_LVL_UPDATE_PERIOD,
     SIG_COMPOSITE_BAT_LVL,
     SIG_COMPOSITE_SPEED,
 )
@@ -37,6 +41,7 @@ class CompositeBatteryLevelSensor(SensorEntity):
 
     _attr_should_poll = False
     _ok_to_write_state = False
+    _remove_monitor: Callable[[], None] | None = None
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize composite battery level sensor entity."""
@@ -78,9 +83,16 @@ class CompositeBatteryLevelSensor(SensorEntity):
         await super().async_added_to_hass()
         self._ok_to_write_state = True
 
-    async def _update(self, value: int | None) -> None:
+    @override
+    async def async_will_remove_from_hass(self) -> None:
+        """Run when entity will be removed from hass."""
+        self._cancel_stale_monitor()
+        await super().async_will_remove_from_hass()
+
+    async def _update(self, value: int) -> None:
         """Update sensor with new value."""
         self._attr_native_value = value
+        self._start_stale_monitor()
 
         # It's possible for dispatcher signal to arrive, causing this method to execute,
         # before this sensor entity has been completely "added to hass", meaning
@@ -90,6 +102,26 @@ class CompositeBatteryLevelSensor(SensorEntity):
         # added to hass, we can go ahead and write the state here for future updates.
         if self._ok_to_write_state:
             self.async_write_ha_state()
+
+    def _cancel_stale_monitor(self) -> None:
+        """Cancel stale monitor."""
+        if self._remove_monitor:
+            self._remove_monitor()
+            self._remove_monitor = None
+
+    def _start_stale_monitor(self) -> None:
+        """Start stale monitor."""
+        self._cancel_stale_monitor()
+
+        async def value_is_stale(_utcnow: datetime) -> None:
+            """Sensor value is stale."""
+            self._remove_monitor = None
+            self._attr_native_value = None
+            self.async_write_ha_state()
+
+        self._remove_monitor = async_call_later(
+            self.hass, MAX_BAT_LVL_UPDATE_PERIOD, value_is_stale
+        )
 
 
 class CompositeSpeedSensor(SensorEntity):

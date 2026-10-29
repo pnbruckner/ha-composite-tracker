@@ -541,10 +541,12 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         charging = cast(bool | None, new_attrs.get(_CHARGING_ATTRS))
 
         # Even if device_tracker might not update for various reasons, go ahead and
-        # update battery_level sensor with new value.
-        async_dispatcher_send(
-            self.hass, f"{SIG_COMPOSITE_BAT_LVL}-{self.unique_id}", battery
-        )
+        # update battery_level sensor with new value, but only if a new value was
+        # available.
+        if battery is not None:
+            async_dispatcher_send(
+                self.hass, f"{SIG_COMPOSITE_BAT_LVL}-{self.unique_id}", battery
+            )
 
         # What type of tracker is this?
         if new_state.domain == BS_DOMAIN:
