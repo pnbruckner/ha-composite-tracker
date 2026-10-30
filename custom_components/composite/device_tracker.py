@@ -1,6 +1,4 @@
 """A Device Tracker platform that combines one or more device trackers."""
-from __future__ import annotations
-
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
@@ -17,10 +15,12 @@ from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.device_tracker import (
     ATTR_BATTERY,
     ATTR_SOURCE_TYPE,
+    ATTR_TRACKING_TYPE,
     DOMAIN as DT_DOMAIN,
     SourceType,
     TrackerEntity,
 )
+from homeassistant.components.input_boolean import DOMAIN as IB_DOMAIN
 from homeassistant.components.zone import async_active_zone
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import (
@@ -76,6 +76,7 @@ from .const import (
     CONF_USE_PICTURE,
     MIN_ANGLE_SPEED,
     MIN_SPEED_SECONDS,
+    SIG_COMPOSITE_BAT_LVL,
     SIG_COMPOSITE_SPEED,
     STATE_DRIVING,
 )
@@ -92,8 +93,6 @@ _RESTORE_EXTRA_ATTRS = (
     ATTR_ENTITIES,
     ATTR_LAST_ENTITY_ID,
     ATTR_LAST_SEEN,
-    ATTR_BATTERY_LEVEL,
-    ATTR_BATTERY_CHARGING,
 )
 
 _GPS_ACCURACY_ATTRS = (ATTR_GPS_ACCURACY, ATTR_ACC)
@@ -207,7 +206,15 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
     """Composite Device Tracker."""
 
     _attr_translation_key = "tracker"
-    _unrecorded_attributes = frozenset({ATTR_ENTITIES, ATTR_ENTITY_PICTURE})
+    _unrecorded_attributes = frozenset(
+        {
+            ATTR_BATTERY_CHARGING,
+            ATTR_BATTERY_LEVEL,
+            ATTR_ENTITIES,
+            ATTR_ENTITY_PICTURE,
+            ATTR_TRACKING_TYPE,
+        }
+    )
 
     # State vars
     _last_driving_context: Context | None = None
@@ -534,8 +541,16 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
         battery = cast(int | None, new_attrs.get(_BATTERY_ATTRS))
         charging = cast(bool | None, new_attrs.get(_CHARGING_ATTRS))
 
+        # Even if device_tracker might not update for various reasons, go ahead and
+        # update battery_level sensor with new value, but only if a new value was
+        # available.
+        if battery is not None:
+            async_dispatcher_send(
+                self.hass, f"{SIG_COMPOSITE_BAT_LVL}-{self.unique_id}", battery
+            )
+
         # What type of tracker is this?
-        if new_state.domain == BS_DOMAIN:
+        if new_state.domain in (BS_DOMAIN, IB_DOMAIN):
             source_type: str | None = SourceType.ROUTER.value
         else:
             source_type = new_attrs.get(
@@ -575,15 +590,13 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                     return
 
         elif source_type in SourceType:
-            # Convert 'on'/'off' state of binary_sensor
-            # to 'home'/'not_home'.
-            if new_state.domain == BS_DOMAIN:
-                if state == STATE_ON:
-                    state = STATE_HOME
-                else:
-                    state = STATE_NOT_HOME
+            assert source_type is not None
 
-            entity.good(last_seen, SourceType(source_type), state)  # type: ignore[arg-type]
+            # Convert 'on'/'off' state of binary_sensor to 'home'/'not_home'.
+            if new_state.domain in (BS_DOMAIN, IB_DOMAIN):
+                state = STATE_HOME if state == STATE_ON else STATE_NOT_HOME
+
+            entity.good(last_seen, SourceType(source_type), state)
 
             if not self._use_non_gps_data(entity_id, state):
                 return
@@ -600,12 +613,6 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
                 if self.latitude is None or self.longitude is None:
                     _LOGGER.warning("%s: Unexpectedly home without GPS data", self.name)
                     home_w_gps = False
-
-            # It's important, for this composite tracker, to avoid the
-            # component level code's "stale processing." This can be done
-            # one of two ways: 1) provide GPS data w/ source_type of gps,
-            # or 2) provide a state override (that will be used as the new
-            # state).
 
             # If input entity's state is 'home' and our current state is 'home' w/ GPS
             # data, use it and make source_type gps.
@@ -663,7 +670,7 @@ class CompositeDeviceTracker(TrackerEntity, RestoreEntity):
             attrs[ATTR_BATTERY_LEVEL] = battery
 
         self._set_state(
-            context, state_override, gps, gps_accuracy, attrs, SourceType(source_type)  # type: ignore[arg-type]
+            context, state_override, gps, gps_accuracy, attrs, SourceType(source_type)
         )
 
         self._prev_seen = last_seen

@@ -89,6 +89,9 @@
             }
         },
         "sensor": {
+            "battery_level": {
+                "name": "{name} battery level"
+            },
             "speed": {
                 "name": "{name} speed",
                 "state_attributes": {

@@ -89,6 +89,9 @@
             }
         },
         "sensor": {
+            "battery_level": {
+                "name": "Batterijniveau van {name}"
+            },
             "speed": {
                 "name": "{name} snelheid",
                 "state_attributes": {

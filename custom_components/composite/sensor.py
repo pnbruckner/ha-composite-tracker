@@ -1,6 +1,6 @@
 """Composite Sensor."""
-from __future__ import annotations
-
+from collections.abc import Callable
+from datetime import datetime
 from typing import cast, override
 
 from homeassistant.components.sensor import (
@@ -11,16 +11,19 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.const import CONF_ID, CONF_NAME, UnitOfSpeed
+from homeassistant.const import CONF_ID, CONF_NAME, UnitOfRatio, UnitOfSpeed
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 
 from .const import (
     ATTR_ANGLE,
     ATTR_DIRECTION,
     CONF_SHOW_UNKNOWN_AS_0,
+    MAX_BAT_LVL_UPDATE_PERIOD,
+    SIG_COMPOSITE_BAT_LVL,
     SIG_COMPOSITE_SPEED,
 )
 
@@ -29,28 +32,118 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the sensor platform."""
-    async_add_entities([CompositeSensor(hass, entry)])
+    async_add_entities([CompositeBatteryLevelSensor(hass, entry)])
+    async_add_entities([CompositeSpeedSensor(hass, entry)])
 
 
-class CompositeSensor(SensorEntity):
-    """Composite Sensor Entity."""
+class CompositeBatteryLevelSensor(SensorEntity):
+    """Composite Battery Level Sensor Entity."""
 
+    _attr_should_poll = False
+    _ok_to_write_state = False
+    _remove_monitor: Callable[[], None] | None = None
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Initialize composite battery level sensor entity."""
+        if entry.source == SOURCE_IMPORT:
+            entity_description = SensorEntityDescription(
+                key="battery_level",
+                device_class=SensorDeviceClass.BATTERY,
+                name=cast(str, entry.data[CONF_NAME]) + " Battery Level",
+                translation_key="battery_level",
+                native_unit_of_measurement=UnitOfRatio.PERCENTAGE,
+                state_class=SensorStateClass.MEASUREMENT,
+            )
+            obj_id = (signal := cast(str, entry.data[CONF_ID])) + "_battery_level"
+            self.entity_id = f"{S_DOMAIN}.{obj_id}"
+            self._attr_unique_id = obj_id
+        else:
+            entity_description = SensorEntityDescription(
+                key="battery_level",
+                device_class=SensorDeviceClass.BATTERY,
+                has_entity_name=True,
+                translation_key="battery_level",
+                native_unit_of_measurement=UnitOfRatio.PERCENTAGE,
+                state_class=SensorStateClass.MEASUREMENT,
+            )
+            self._attr_translation_placeholders = {"name": entry.title}
+            signal = entry.entry_id
+            self._attr_unique_id = signal + "-bat_lvl"
+        self.entity_description = entity_description
+
+        self.async_on_remove(
+            async_dispatcher_connect(
+                hass, f"{SIG_COMPOSITE_BAT_LVL}-{signal}", self._update
+            )
+        )
+
+    @override
+    async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self._ok_to_write_state = True
+
+    @override
+    async def async_will_remove_from_hass(self) -> None:
+        """Run when entity will be removed from hass."""
+        self._cancel_stale_monitor()
+        await super().async_will_remove_from_hass()
+
+    async def _update(self, value: int) -> None:
+        """Update sensor with new value."""
+        self._attr_native_value = value
+        self._start_stale_monitor()
+
+        # It's possible for dispatcher signal to arrive, causing this method to execute,
+        # before this sensor entity has been completely "added to hass", meaning
+        # self.hass might not yet have been initialized, causing this call to
+        # async_write_ha_state to fail. We still update our state, so that the call to
+        # async_write_ha_state at the end of the "add to hass" process will see it. Once
+        # added to hass, we can go ahead and write the state here for future updates.
+        if self._ok_to_write_state:
+            self.async_write_ha_state()
+
+    def _cancel_stale_monitor(self) -> None:
+        """Cancel stale monitor."""
+        if self._remove_monitor:
+            self._remove_monitor()
+            self._remove_monitor = None
+
+    def _start_stale_monitor(self) -> None:
+        """Start stale monitor."""
+        self._cancel_stale_monitor()
+
+        async def value_is_stale(_utcnow: datetime) -> None:
+            """Sensor value is stale."""
+            self._remove_monitor = None
+            self._attr_native_value = None
+            self.async_write_ha_state()
+
+        self._remove_monitor = async_call_later(
+            self.hass, MAX_BAT_LVL_UPDATE_PERIOD, value_is_stale
+        )
+
+
+class CompositeSpeedSensor(SensorEntity):
+    """Composite Speed Sensor Entity."""
+
+    _attr_icon = "mdi:car-speed-limiter"
     _attr_should_poll = False
     _raw_value: float | None = None
     _ok_to_write_state = False
     _show_unknown_as_0: bool
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Initialize composite sensor entity."""
+        """Initialize composite speed sensor entity."""
         if entry.source == SOURCE_IMPORT:
             entity_description = SensorEntityDescription(
                 key="speed",
                 device_class=SensorDeviceClass.SPEED,
-                icon="mdi:car-speed-limiter",
                 name=cast(str, entry.data[CONF_NAME]) + " Speed",
                 translation_key="speed",
                 native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
                 state_class=SensorStateClass.MEASUREMENT,
+                suggested_display_precision=1,
             )
             obj_id = (signal := cast(str, entry.data[CONF_ID])) + "_speed"
             self.entity_id = f"{S_DOMAIN}.{obj_id}"
@@ -59,11 +152,11 @@ class CompositeSensor(SensorEntity):
             entity_description = SensorEntityDescription(
                 key="speed",
                 device_class=SensorDeviceClass.SPEED,
-                icon="mdi:car-speed-limiter",
                 has_entity_name=True,
                 translation_key="speed",
                 native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
                 state_class=SensorStateClass.MEASUREMENT,
+                suggested_display_precision=1,
             )
             self._attr_translation_placeholders = {"name": entry.title}
             self._attr_unique_id = signal = entry.entry_id
@@ -136,6 +229,14 @@ class CompositeSensor(SensorEntity):
             ]
 
         self._raw_value = value
+        if value is None or value < 4.5:
+            self._attr_icon = "mdi:car-speed-limiter"
+        elif value < 13.4:
+            self._attr_icon = "mdi:speedometer-slow"
+        elif value < 24.6:
+            self._attr_icon = "mdi:speedometer-medium"
+        else:
+            self._attr_icon = "mdi:speedometer"
         self._attr_extra_state_attributes = {
             ATTR_ANGLE: angle,
             ATTR_DIRECTION: direction(angle),
