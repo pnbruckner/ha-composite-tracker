@@ -1,12 +1,13 @@
 {
   "domain": "composite",
   "name": "Composite",
+  "categories": ["presence_location"],
   "codeowners": ["@pnbruckner"],
   "config_flow": true,
   "dependencies": ["file_upload"],
-  "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/4.2.1/README.md",
+  "documentation": "https://github.com/pnbruckner/ha-composite-tracker/blob/4.3.0/README.md",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/pnbruckner/ha-composite-tracker/issues",
   "requirements": ["filetype==1.2.0"],
-  "version": "4.2.1"
+  "version": "4.3.0"
 }
