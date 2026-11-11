@@ -1,4 +1,4 @@
-# <img src="https://brands.home-assistant.io/composite/icon.png" alt="Composite Device Tracker Platform" width="50" height="50"/> Composite Device Tracker
+# <img src="custom_components/composite/brand/icon.png" alt="Composite Device Tracker Platform" width="50" height="50"/> Composite Device Tracker
 
 This integration creates a composite `device_tracker` entity from one or more other entities. It will update whenever one of the watched entities updates, taking the "last seen" (and possibly GPS and other) data from the changing entity. The result can be a more accurate and up-to-date device tracker if the "input" entities update irregularly.
 
